@@ -36,7 +36,7 @@ export const WarmupChallenge: React.FC<WarmupChallengeProps> = ({ onComplete, re
   const handleTimeUp = useCallback(() => {
     setIsPlaying(false);
     requestDialogue({
-      speaker: guides.kuro,
+      speaker: guides.kagura,
       lines: ["Hết giờ rồi, cố gắng tinh mắt ở những thử thách sau nhé!"],
       mood: "soft",
       onComplete: onComplete,

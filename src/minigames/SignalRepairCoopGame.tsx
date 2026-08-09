@@ -4,6 +4,17 @@ import { randomInRange } from "../lib/random";
 
 const GAME_DURATION = 60;
 const WIN_SCORE = 30;
+const isTouchDevice = () =>
+  typeof window !== "undefined" && ("ontouchstart" in window || navigator.maxTouchPoints > 0);
+
+const simulateKey = (key: string, type: "keydown" | "keyup") => {
+  const event = new KeyboardEvent(type, {
+    key,
+    code: `Key${key.toUpperCase()}`,
+    bubbles: true,
+  });
+  window.dispatchEvent(event);
+};
 
 type Fault = {
   id: number;
@@ -22,18 +33,24 @@ export const SignalRepairCoopGame = ({ onComplete, onBack }: { onComplete: (isWi
 
   const keysRef = useRef<{ [key: string]: boolean }>({});
   const cursorXRef = useRef(50);
+  const faultRef = useRef<Fault | null>(null);
+  const faultElementRef = useRef<HTMLDivElement | null>(null);
+  const cursorElementRef = useRef<HTMLDivElement | null>(null);
   const requestRef = useRef<number>();
+  const repairKeyDownRef = useRef(false);
 
   // Spawn new fault
   useEffect(() => {
     if (gameState !== "playing") return;
     if (!fault) {
       const width = randomInRange(10, 20);
-      setFault({
+      const nextFault = {
         id: Date.now(),
         xPercent: randomInRange(width, 100 - width),
         widthPercent: width,
-      });
+      };
+      faultRef.current = nextFault;
+      setFault(nextFault);
     }
   }, [fault, gameState]);
 
@@ -85,16 +102,33 @@ export const SignalRepairCoopGame = ({ onComplete, onBack }: { onComplete: (isWi
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (gameState !== "playing") return;
-      keysRef.current[e.key] = true;
+      const key = e.key.toLowerCase();
+      keysRef.current[key] = true;
 
       // P2 action
-      if (e.key === "l" || e.key === "L" || e.key === "Enter") {
-        if (fault) {
-          const minX = fault.xPercent - fault.widthPercent / 2;
-          const maxX = fault.xPercent + fault.widthPercent / 2;
-          const inZone = cursorXRef.current >= minX && cursorXRef.current <= maxX;
+      if (key === "l" || e.key === "Enter") {
+        e.preventDefault();
+
+        // A physical press must only submit one repair. Keyboard repeat events
+        // previously evaluated the same (stale) fault multiple times.
+        if (e.repeat || repairKeyDownRef.current) {
+          return;
+        }
+        repairKeyDownRef.current = true;
+
+        const activeFault = faultRef.current;
+        if (activeFault) {
+          // Score against the actual rendered shapes. If even the edge of the
+          // purple cursor touches the visible red zone, the repair is valid.
+          const faultRect = faultElementRef.current?.getBoundingClientRect();
+          const cursorRect = cursorElementRef.current?.getBoundingClientRect();
+          const inZone =
+            Boolean(faultRect && cursorRect) &&
+            cursorRect!.right >= faultRect!.left &&
+            cursorRect!.left <= faultRect!.right;
 
           if (inZone) {
+            faultRef.current = null;
             setRepairs(r => r + 1);
             setFault(null);
           } else {
@@ -111,18 +145,29 @@ export const SignalRepairCoopGame = ({ onComplete, onBack }: { onComplete: (isWi
     };
 
     const handleKeyUp = (e: KeyboardEvent) => {
-      keysRef.current[e.key] = false;
+      const key = e.key.toLowerCase();
+      keysRef.current[key] = false;
+      if (key === "l" || e.key === "Enter") {
+        repairKeyDownRef.current = false;
+      }
+    };
+    const handleBlur = () => {
+      keysRef.current = {};
+      repairKeyDownRef.current = false;
     };
 
     window.addEventListener("keydown", handleKeyDown);
     window.addEventListener("keyup", handleKeyUp);
+    window.addEventListener("blur", handleBlur);
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
       window.removeEventListener("keyup", handleKeyUp);
+      window.removeEventListener("blur", handleBlur);
     };
-  }, [gameState, fault]);
+  }, [gameState]);
 
   const isWin = repairs >= WIN_SCORE && lives > 0;
+  const showTouchControls = isTouchDevice();
 
   return (
     <div className={styles.minigameOverlay}>
@@ -140,19 +185,23 @@ export const SignalRepairCoopGame = ({ onComplete, onBack }: { onComplete: (isWi
           <div style={{ height: "40px", background: "rgba(255,255,255,0.1)", borderRadius: "4px", position: "relative" }}>
             {/* Fault Zone */}
             {fault && (
-              <div style={{
-                position: "absolute",
-                left: `${fault.xPercent}%`,
-                width: `${fault.widthPercent}%`,
-                height: "100%",
-                background: "rgba(239, 68, 68, 0.4)",
-                transform: "translateX(-50%)",
-                animation: "pulse 1s infinite alternate"
-              }}></div>
+              <div
+                ref={faultElementRef}
+                style={{
+                  position: "absolute",
+                  left: `${fault.xPercent}%`,
+                  width: `${fault.widthPercent}%`,
+                  height: "100%",
+                  background: "rgba(239, 68, 68, 0.4)",
+                  transform: "translateX(-50%)",
+                  animation: "pulse 1s infinite alternate"
+                }}
+              />
             )}
             
             {/* P1 Cursor */}
             <div
+              ref={cursorElementRef}
               style={{
                 position: "absolute",
                 left: `${cursorX}%`,
@@ -172,8 +221,49 @@ export const SignalRepairCoopGame = ({ onComplete, onBack }: { onComplete: (isWi
         </div>
       </div>
 
+      {showTouchControls && gameState === "playing" ? (
+        <div className={styles.touchOverlay}>
+          <div className={styles.touchGroup}>
+            <button
+              className={styles.touchBtn}
+              type="button"
+              onPointerDown={() => simulateKey("a", "keydown")}
+              onPointerUp={() => simulateKey("a", "keyup")}
+              onPointerCancel={() => simulateKey("a", "keyup")}
+              onPointerLeave={() => simulateKey("a", "keyup")}
+              aria-label="Player 1 trái"
+            >
+              ◀
+            </button>
+            <button
+              className={styles.touchBtn}
+              type="button"
+              onPointerDown={() => simulateKey("d", "keydown")}
+              onPointerUp={() => simulateKey("d", "keyup")}
+              onPointerCancel={() => simulateKey("d", "keyup")}
+              onPointerLeave={() => simulateKey("d", "keyup")}
+              aria-label="Player 1 phải"
+            >
+              ▶
+            </button>
+          </div>
+          <div className={styles.touchGroup}>
+            <button
+              className={styles.touchBtn}
+              type="button"
+              onPointerDown={() => simulateKey("l", "keydown")}
+              onPointerUp={() => simulateKey("l", "keyup")}
+              onPointerCancel={() => simulateKey("l", "keyup")}
+              aria-label="Player 2 sửa"
+            >
+              Sửa
+            </button>
+          </div>
+        </div>
+      ) : null}
+
       {gameState === "end" && (
-        <div className={styles.minigameResult}>
+        <div className={`${styles.minigameResult} ${isWin ? styles.resultWinScene : styles.resultLoseScene}`}>
           <h2 className={`${styles.resultTitle} ${isWin ? styles.win : styles.lose}`}>
             {isWin ? "THÀNH CÔNG" : "THẤT BẠI"}
           </h2>

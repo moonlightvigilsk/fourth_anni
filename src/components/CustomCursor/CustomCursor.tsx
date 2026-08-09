@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { usePointerType } from "../../hooks/usePointerType";
 import styles from "./CustomCursor.module.css";
 
@@ -70,9 +71,14 @@ export const CustomCursor = () => {
     return null;
   }
 
-  return (
+  if (typeof document === "undefined") {
+    return null;
+  }
+
+  return createPortal(
     <div ref={cursorRef} className={styles.cursor} aria-hidden="true">
       ✦
-    </div>
+    </div>,
+    document.body,
   );
 };

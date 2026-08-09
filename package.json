@@ -6,10 +6,12 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
+    "convert-images": "node scripts/convert-to-webp.cjs",
     "preview": "vite preview"
   },
   "dependencies": {
     "@vitejs/plugin-react": "^4.3.4",
+    "firebase": "^12.14.0",
     "motion": "^12.0.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
@@ -21,6 +23,7 @@
     "@types/react-dom": "^18.3.1",
     "express": "^5.2.1",
     "puppeteer": "^25.1.0",
+    "sharp": "^0.35.0",
     "typescript": "^5.6.3",
     "vite": "^5.4.11"
   }

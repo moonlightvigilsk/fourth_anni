@@ -58,20 +58,20 @@ export const journeyParts: JourneyPartConfig[] = [
   },
   {
     id: "letters",
-    title: "Thư Của Đội Ngũ",
-    subtitle: "Đôi dòng từ những con người đứng sau các vì sao.",
+    title: "Lời Nhắn Gửi Hai Cậu",
+    subtitle: "Đôi dòng từ những người gửi tín hiệu đến Linh Lan và Lan Linh.",
     requiredAchievement: "letters_read",
   },
   {
     id: "teamGallery",
-    title: "Team Gallery",
-    subtitle: "Một khung ảnh chung cho toàn bộ thành viên đứng sau món quà này.",
+    title: "Khung Ảnh Tín Hiệu",
+    subtitle: "Một khung ảnh chung của những người đã chuẩn bị món quà này.",
     requiredAchievement: "team_gallery_seen",
   },
   {
     id: "finale",
     title: "Hồi Kết",
-    subtitle: "Tín hiệu cuối cùng chỉ mở ra khi mọi thứ đã được đọc.",
+    subtitle: "Tín hiệu cuối cùng chỉ mở ra sau khi mọi thứ đã được đọc.",
     requiredAchievement: "finale_reached",
   },
 ];

@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import { guides } from "../data/guides";
 import { DialogueOverlayRequest, SectionProps } from "./sectionTypes";
+import { useElapsedTime } from "../hooks/useElapsedTime";
 
 const moonFacts = [
   {
@@ -38,6 +39,7 @@ export const MoonPhase = ({
   isCompleted,
 }: SectionProps) => {
   const hasQueuedRef = useRef(false);
+  const timeData = useElapsedTime();
 
   useEffect(() => {
     const dialogueId = "dialogue:moonphase:intro";
@@ -116,6 +118,35 @@ export const MoonPhase = ({
               </div>
             </article>
           ))}
+        </div>
+      </section>
+
+      {/* ─── Premium Timer Clock Display ─── */}
+      <section className="moonPhaseTimerSection">
+        <div className="premiumTimerLabel">
+          <span className="elapsedLabel">THỜI GIAN ĐỒNG HÀNH</span>
+          <h3>Hành trình từ vệt sáng đầu tiên</h3>
+        </div>
+        <div className="premiumTimerDisplay">
+          <div className="timerCard">
+            <span className="timerNum">{timeData.days}</span>
+            <span className="timerUnit">Ngày</span>
+          </div>
+          <div className="timerDivider">:</div>
+          <div className="timerCard">
+            <span className="timerNum">{String(timeData.hours).padStart(2, "0")}</span>
+            <span className="timerUnit">Giờ</span>
+          </div>
+          <div className="timerDivider">:</div>
+          <div className="timerCard">
+            <span className="timerNum">{String(timeData.minutes).padStart(2, "0")}</span>
+            <span className="timerUnit">Phút</span>
+          </div>
+          <div className="timerDivider">:</div>
+          <div className="timerCard">
+            <span className="timerNum">{String(timeData.seconds).padStart(2, "0")}</span>
+            <span className="timerUnit">Giây</span>
+          </div>
         </div>
       </section>
 

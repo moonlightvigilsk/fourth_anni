@@ -1,4 +1,4 @@
-import { useMemo, useState, useRef } from "react";
+import { memo, useEffect, useMemo, useState, useRef } from "react";
 import { StarfieldCanvas } from "../components/Starfield/StarfieldCanvas";
 import {
   constellationStars,
@@ -6,30 +6,35 @@ import {
   StarPoint,
   summerTriangleIds,
 } from "../data/constellation";
-import { guides } from "../data/guides";
+import { guides, guideList } from "../data/guides";
 import { audioManager } from "../lib/audioManager";
 import { hasAchievement } from "../lib/achievements";
 import { SectionProps } from "./sectionTypes";
+import { starAffinityMap } from "../data/constellationAffinity";
+import { useReducedMotion } from "../hooks/useReducedMotion";
 
 const REQUIRED_SUMMER_STARS = 3;
 const ALL_STARS_MEMORY_NOTE =
   "Vào đêm 20/08, nếu trời đủ trong ở Sài Gòn, cậu có thể ngẩng lên và tìm thấy Tam Giác Mùa Hè. Ba ngôi sao không thuộc cùng một chòm, nhưng lại được con người nối lại thành một dấu hiệu quen thuộc trong suốt hàng nghìn năm qua. Giống như ngày hôm đó là một ngày mà bọn tớ muốn giữ lại khi cả bầu trời đã chứng kiến ngày mà hai cậu đến với mọi người!";
 
-export const Constellation = ({
+export const Constellation = memo(({
   state,
   setState,
   unlock,
   completePart,
   requestDialogue,
   isCompleted,
+  increaseAffinity,
 }: SectionProps) => {
+  const reducedMotion = useReducedMotion();
   const [showGrid, setShowGrid] = useState(false);
+  const [showStarList, setShowStarList] = useState(false);
   const [selectedStar, setSelectedStar] = useState<StarPoint | null>(null);
   const [readingStar, setReadingStar] = useState<StarPoint | null>(null);
   const [toastNote, setToastNote] = useState<{ id: string, text: string, x: number, y: number } | null>(null);
   const [showCompletionPrompt, setShowCompletionPrompt] = useState(false);
   const [showAllStarsPopup, setShowAllStarsPopup] = useState(false);
-  const [isZoomingOut, setIsZoomingOut] = useState(false);
+
   const choseToStay = useRef(false);
   const watcherUnlocked = hasAchievement(state, "watcher");
   const foundSummerStars = summerTriangleIds.filter((id) =>
@@ -48,14 +53,69 @@ export const Constellation = ({
     audioManager.playUiSound("star");
     setSelectedStar(star);
 
+    const isNewStar = !state.unlockedStars.includes(star.id);
     const nextUnlockedStars = state.unlockedStars.includes(star.id)
       ? state.unlockedStars
       : [...state.unlockedStars, star.id];
-    const nextSummerStars =
-      star.kind === "summer" && !state.constellationSpecialStars.includes(star.id)
-        ? [...state.constellationSpecialStars, star.id]
-        : state.constellationSpecialStars;
+    const isNewSummerStarClick =
+      star.kind === "summer" && !state.constellationSpecialStars.includes(star.id);
+    const nextSummerStars = isNewSummerStarClick
+      ? [...state.constellationSpecialStars, star.id]
+      : state.constellationSpecialStars;
     const nextSummerCount = summerTriangleIds.filter((id) => nextSummerStars.includes(id)).length;
+
+    // Grant affinity (Task 4)
+    if (isNewStar && increaseAffinity) {
+      const guideId = starAffinityMap[star.id];
+      if (guideId) {
+        increaseAffinity(guideId, 2);
+      }
+      
+      const completesTriangle = isNewSummerStarClick && nextSummerCount === REQUIRED_SUMMER_STARS;
+      if (completesTriangle) {
+        guideList.forEach((guide) => {
+          increaseAffinity(guide.id, 1);
+        });
+      }
+    }
+
+    // Play Tone.js sound (Task 2)
+    if (!reducedMotion) {
+      import("tone").then((Tone) => {
+        void Tone.start().then(() => {
+          const completesTriangle = isNewSummerStarClick && nextSummerCount === REQUIRED_SUMMER_STARS;
+          if (completesTriangle) {
+            const reverb = new Tone.Reverb({ decay: 3, wet: 0.5 }).toDestination();
+            const synth = new Tone.PolySynth(Tone.Synth, {
+              oscillator: { type: "sine" },
+              envelope: { attack: 0.05, decay: 0.3, sustain: 0.1, release: 1.2 }
+            }).connect(reverb);
+
+            const now = Tone.now();
+            synth.triggerAttackRelease(["D4", "F#4", "A4", "D5"], "4n", now);
+
+            setTimeout(() => {
+              synth.dispose();
+              reverb.dispose();
+            }, 4000);
+          } else {
+            const synth = new Tone.PolySynth(Tone.Synth, {
+              oscillator: { type: "sine" },
+              envelope: { attack: 0.05, decay: 0.3, sustain: 0.1, release: 1.2 }
+            }).toDestination();
+
+            const now = Tone.now();
+            synth.triggerAttackRelease("D4", "8n", now);
+            synth.triggerAttackRelease("F#4", "8n", now + 0.08);
+            synth.triggerAttackRelease("A4", "8n", now + 0.16);
+
+            setTimeout(() => {
+              synth.dispose();
+            }, 2000);
+          }
+        });
+      });
+    }
 
     setState((previous) => ({
       ...previous,
@@ -92,12 +152,12 @@ export const Constellation = ({
       unlock("watcher");
     }
 
-    if (star.kind === "secondary" || star.kind === "secret" || star.kind === "poetic") {
-      setToastNote({ id: star.id, text: star.fact ?? "", x: star.x, y: star.y });
-      setTimeout(() => {
-        setToastNote(current => current?.id === star.id ? null : current);
-      }, 2500);
-    }
+    setToastNote((current) => {
+      if (current?.id === star.id) {
+        return null;
+      }
+      return { id: star.id, text: star.fact ?? "Khám phá vì sao...", x: star.x, y: star.y };
+    });
 
     if (nextUnlockedStars.length === 20 && !hasAchievement(state, "all_stars_remembered")) {
       unlock("all_stars_remembered");
@@ -145,17 +205,26 @@ export const Constellation = ({
   };
 
   const handleComplete = () => {
-    setIsZoomingOut(true);
-    setTimeout(() => {
-      completePart("constellation");
-    }, 4000);
+    completePart("constellation");
   };
 
   return (
-    <div className={`partStack constellationStack ${isZoomingOut ? "zoomingOut" : ""}`}>
+    <div className="partStack constellationStack">
       <div className="skyObservationLayout">
         <div className={`constellationStage ${showGrid ? "hasGrid" : ""}`}>
-          <StarfieldCanvas unlockedStars={state.unlockedStars} onStarClick={handleStarClick} />
+          <StarfieldCanvas
+            unlockedStars={state.unlockedStars}
+            onStarClick={handleStarClick}
+          />
+          <button
+            className="starListToggle"
+            type="button"
+            onClick={() => setShowStarList((value) => !value)}
+            aria-expanded={showStarList}
+            aria-controls="star-list"
+          >
+            {showStarList ? "Ẩn danh sách sao" : "Hiện danh sách sao"}
+          </button>
           {showGrid ? (
             <div className="constellationGridOverlay" aria-hidden="true">
               <span className="gridAxis x0">X 0</span>
@@ -213,7 +282,7 @@ export const Constellation = ({
                 <strong>Tam giác đã nối xong</strong>
                 <p>Khám phá phần còn lại của bầu trời hoặc nhấn Tiếp tục khi đã sẵn sàng.</p>
                 {!isCompleted && (choseToStay.current || state.unlockedStars.length >= 20) ? (
-                  <button className="readMoreBtn" onClick={handleComplete} style={{ marginTop: "0.5rem" }} disabled={isZoomingOut}>
+                  <button className="readMoreBtn" onClick={handleComplete} style={{ marginTop: "0.5rem" }}>
                     Chuyển sang phần tiếp theo
                   </button>
                 ) : null}
@@ -245,6 +314,45 @@ export const Constellation = ({
           </div>
         </div>
       </div>
+
+      {showStarList ? (
+        <ul id="star-list" className="starList" role="list">
+          {state.unlockedStars.length === 0 ? (
+            <li className="starListEmpty">Chưa có ngôi sao nào được khám phá. Hãy chạm vào bầu trời!</li>
+          ) : (
+            constellationStars
+              .filter((star) => state.unlockedStars.includes(star.id))
+              .map((star) => (
+                <li key={star.id}>
+                  <button
+                    type="button"
+                    className={`starListItem isUnlocked kind-${star.kind}`}
+                    onClick={() => {
+                      setSelectedStar(star);
+                      audioManager.playUiSound("star");
+                    }}
+                  >
+                    <div className="starItemHeader">
+                      <span className="starName">{star.skyName ?? star.label}</span>
+                      <span className="starStatusIcon">✦</span>
+                    </div>
+                    <div className="starItemFooter">
+                      <small className="starCoord">{star.coord}</small>
+                      <span className={`starKindBadge badge-${star.kind}`}>
+                        {star.kind === "summer" ? "Tam Giác" :
+                         star.kind === "key" ? "Ẩn" :
+                         star.kind === "poetic" ? "Thi Ca" :
+                         star.kind === "secret" ? "Bí Mật" :
+                         star.kind === "major" ? "Chính" :
+                         star.kind === "secondary" ? "Phụ" : "Khác"}
+                      </span>
+                    </div>
+                  </button>
+                </li>
+              ))
+          )}
+        </ul>
+      ) : null}
 
       {readingStar ? (
         <div className="starModalBackdrop" onClick={() => setReadingStar(null)}>
@@ -296,7 +404,7 @@ export const Constellation = ({
               <button className="readMoreBtn" onClick={() => {
                 setShowCompletionPrompt(false);
                 handleComplete();
-              }} style={{ background: "rgba(216, 180, 92, 0.2)" }} disabled={isZoomingOut}>
+              }} style={{ background: "rgba(216, 180, 92, 0.2)" }}>
                 Đi tiếp
               </button>
             </div>
@@ -324,4 +432,4 @@ export const Constellation = ({
 
     </div>
   );
-};
+});

@@ -3,6 +3,21 @@ import styles from "./minigames.module.css";
 import { randomInRange } from "../lib/random";
 
 const GAME_DURATION = 45;
+const INPUT_FORCE = 0.08;
+const MAX_DRIFT_FORCE = 0.035;
+const MAX_VELOCITY = 1.8;
+
+const isTouchDevice = () =>
+  typeof window !== "undefined" && ("ontouchstart" in window || navigator.maxTouchPoints > 0);
+
+const simulateKey = (key: string, type: "keydown" | "keyup") => {
+  const event = new KeyboardEvent(type, {
+    key,
+    code: `Key${key.toUpperCase()}`,
+    bubbles: true,
+  });
+  window.dispatchEvent(event);
+};
 
 export const BalanceCoopGame = ({ onComplete, onBack }: { onComplete: (isWin: boolean) => void; onBack: () => void }) => {
   const [timeLeft, setTimeLeft] = useState(GAME_DURATION);
@@ -29,27 +44,29 @@ export const BalanceCoopGame = ({ onComplete, onBack }: { onComplete: (isWin: bo
 
     const tick = () => {
       const now = Date.now();
-      const dt = now - timeRef.current;
+      const dt = Math.min(now - timeRef.current, 32);
       timeRef.current = now;
 
       const state = stateRef.current;
 
-      // Change drift randomly (thay đổi nhanh hơn, lực mạnh hơn)
-      if (now - state.lastDriftChange > randomInRange(400, 1000)) {
-        state.randomDrift = (Math.random() - 0.5) * 0.18;
+      // The random pull should create pressure, but must never overpower two
+      // players deliberately pushing in the same direction.
+      if (now - state.lastDriftChange > randomInRange(700, 1400)) {
+        state.randomDrift = (Math.random() * 2 - 1) * MAX_DRIFT_FORCE;
         state.lastDriftChange = now;
       }
 
       // Input force
       let force = 0;
-      if (keysRef.current["a"] || keysRef.current["A"]) force -= 0.045;
-      if (keysRef.current["d"] || keysRef.current["D"]) force += 0.045;
-      if (keysRef.current["j"] || keysRef.current["J"]) force -= 0.045;
-      if (keysRef.current["l"] || keysRef.current["L"]) force += 0.045;
+      if (keysRef.current["a"]) force -= INPUT_FORCE;
+      if (keysRef.current["d"]) force += INPUT_FORCE;
+      if (keysRef.current["j"]) force -= INPUT_FORCE;
+      if (keysRef.current["l"]) force += INPUT_FORCE;
 
       // Physics
       state.velocity += (state.randomDrift + force) * (dt / 16);
-      state.velocity *= 0.97; // Ít ma sát hơn -> trượt nhiều hơn
+      state.velocity *= force === 0 ? 0.94 : 0.9;
+      state.velocity = Math.max(-MAX_VELOCITY, Math.min(MAX_VELOCITY, state.velocity));
       state.position += state.velocity * (dt / 16);
 
       // Check bounds
@@ -108,22 +125,32 @@ export const BalanceCoopGame = ({ onComplete, onBack }: { onComplete: (isWin: bo
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      keysRef.current[e.key] = true;
+      const key = e.key.toLowerCase();
+      if (["a", "d", "j", "l"].includes(key)) {
+        e.preventDefault();
+        keysRef.current[key] = true;
+      }
     };
     const handleKeyUp = (e: KeyboardEvent) => {
-      keysRef.current[e.key] = false;
+      keysRef.current[e.key.toLowerCase()] = false;
+    };
+    const handleBlur = () => {
+      keysRef.current = {};
     };
 
     window.addEventListener("keydown", handleKeyDown);
     window.addEventListener("keyup", handleKeyUp);
+    window.addEventListener("blur", handleBlur);
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
       window.removeEventListener("keyup", handleKeyUp);
+      window.removeEventListener("blur", handleBlur);
     };
   }, []);
 
   // isWin = survived the time
   const isWin = timeLeft <= 0;
+  const showTouchControls = isTouchDevice();
 
   return (
     <div className={styles.minigameOverlay} style={{ 
@@ -182,8 +209,61 @@ export const BalanceCoopGame = ({ onComplete, onBack }: { onComplete: (isWin: bo
         </div>
       </div>
 
+      {showTouchControls && gameState === "playing" ? (
+        <div className={styles.touchOverlay}>
+          <div className={styles.touchGroup}>
+            <button
+              className={styles.touchBtn}
+              type="button"
+              onPointerDown={() => simulateKey("a", "keydown")}
+              onPointerUp={() => simulateKey("a", "keyup")}
+              onPointerCancel={() => simulateKey("a", "keyup")}
+              onPointerLeave={() => simulateKey("a", "keyup")}
+              aria-label="Player 1 trái"
+            >
+              ◀
+            </button>
+            <button
+              className={styles.touchBtn}
+              type="button"
+              onPointerDown={() => simulateKey("d", "keydown")}
+              onPointerUp={() => simulateKey("d", "keyup")}
+              onPointerCancel={() => simulateKey("d", "keyup")}
+              onPointerLeave={() => simulateKey("d", "keyup")}
+              aria-label="Player 1 phải"
+            >
+              ▶
+            </button>
+          </div>
+          <div className={styles.touchGroup}>
+            <button
+              className={styles.touchBtn}
+              type="button"
+              onPointerDown={() => simulateKey("j", "keydown")}
+              onPointerUp={() => simulateKey("j", "keyup")}
+              onPointerCancel={() => simulateKey("j", "keyup")}
+              onPointerLeave={() => simulateKey("j", "keyup")}
+              aria-label="Player 2 trái"
+            >
+              ◀
+            </button>
+            <button
+              className={styles.touchBtn}
+              type="button"
+              onPointerDown={() => simulateKey("l", "keydown")}
+              onPointerUp={() => simulateKey("l", "keyup")}
+              onPointerCancel={() => simulateKey("l", "keyup")}
+              onPointerLeave={() => simulateKey("l", "keyup")}
+              aria-label="Player 2 phải"
+            >
+              ▶
+            </button>
+          </div>
+        </div>
+      ) : null}
+
       {gameState === "end" && (
-        <div className={styles.minigameResult}>
+        <div className={`${styles.minigameResult} ${isWin ? styles.resultWinScene : styles.resultLoseScene}`}>
           <h2 className={`${styles.resultTitle} ${isWin ? styles.win : styles.lose}`}>
             {isWin ? "THÀNH CÔNG" : "THẤT BẠI"}
           </h2>

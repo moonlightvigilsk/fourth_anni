@@ -12,15 +12,23 @@ export type DialogueOverlayRequest = {
   onComplete?: () => void;
 };
 
+export type CompletePartOptions = {
+  awardAchievement?: boolean;
+};
+
 export type SectionProps = {
   state: AppState;
   setState: Dispatch<SetStateAction<AppState>>;
   unlock: (id: string) => void;
-  completePart: (partId: PartId) => void;
+  completePart: (partId: PartId, options?: CompletePartOptions) => void;
   requestDialogue: (dialogue: DialogueOverlayRequest) => void;
   markDialogueSeen: (id: string) => void;
   hasSeenDialogue: (id: string) => boolean;
   isCompleted: boolean;
   isActive: boolean;
   openStarlog: () => void;
+  openTarotJournal?: () => void;
+  onClose?: () => void;
+  openFinale?: () => void;
+  increaseAffinity?: (characterId: string, amount?: number) => void;
 };

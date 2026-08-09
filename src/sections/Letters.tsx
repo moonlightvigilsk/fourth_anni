@@ -1,30 +1,87 @@
-import { useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { SectionProps } from "./sectionTypes";
 import styles from "./Letters.module.css";
 import { guides, GuideCharacter } from "../data/guides";
+import { letterReplyDialogues } from "../data/letterReplyDialogues";
+import { memberLetters } from "../data/memberLetters";
+import { useReducedMotion } from "../hooks/useReducedMotion";
 
-const teamLetters: Array<{ sender: GuideCharacter; content: string }> = [
-  { sender: guides.kagura, content: "Gửi hai nàng tinh linh, 4 năm qua là một chặng đường dài với nhiều thử thách nhưng cũng đầy ắp tiếng cười. Cảm ơn hai cậu đã luôn giữ vững tinh thần rạng rỡ ấy. Chúc hai cậu mãi bình an và hạnh phúc." },
-  { sender: guides.imed, content: "Code game này mệt mỏi lắm đó biết không? Nhưng vì là quà cho hai cậu nên tớ sẽ tha thứ. Chúc hai cậu một hành trình mới đầy thú vị và bớt báo nhé." },
-  { sender: guides.anChi, content: "Có những tín hiệu không ồn ào, nhưng cứ sáng mãi trong lòng người xem. Cảm ơn hai cậu vì đã đi qua bốn năm bằng rất nhiều dịu dàng, can đảm và những khoảnh khắc đáng giữ lại. Chúc chương tiếp theo của hai cậu rộng hơn, sáng hơn, và vẫn luôn có nơi để trở về." },
-  { sender: guides.lilWayne, content: "Lô, làm bố thì không nói nhiều. Chúc hai đứa năm mới vui vẻ, tiền vào như nước, bớt tấu hài nhạt lại. Thế thôi." },
-  { sender: guides.kuro, content: "Hai đứa nhớ giữ gìn sức khỏe nhé, đừng thức khuya quá. Cảm ơn vì những năng lượng tích cực hai đứa đã mang lại cho mọi người." },
-  { sender: guides.nova, content: "Hệ thống ghi nhận hai mục tiêu đã tồn tại được 4 năm. Đánh giá: Rất tốt. Đề nghị tiếp tục phát huy trong tương lai." },
-  { sender: guides.stone, content: "Hy vọng những vì sao này đã mang lại chút ánh sáng cho ngày đặc biệt của hai cậu. Chúc Linh Lan và Lan Linh luôn rực rỡ như những chòm sao kia nhé." },
-];
+const LetterModal = lazy(() =>
+  import("../components/LetterModal/LetterModal").then((module) => ({ default: module.LetterModal })),
+);
+
+type TeamLetter = {
+  sender: GuideCharacter;
+  title: string;
+  content: string;
+  closing: string;
+};
+
+/** Animation phase for the letter open/close sequence. */
+type LetterAnimPhase =
+  | "idle"          // No letter shown
+  | "flap"          // Envelope flap opening (0.4s)
+  | "slide"         // Paper sliding out (0.3s)
+  | "unroll"        // Letter paper expanding via max-height
+  | "open"          // Fully open, interactive
+  | "closing-paper" // Reverse: collapsing max-height (0.3s)
+  | "closing-slide" // Reverse: paper sliding back (0.3s)
+  | "closing-flap"; // Reverse: flap closing (0.4s)
+
+// Timing constants (ms)
+const FLAP_DURATION = 400;
+const SLIDE_DURATION = 300;
+const UNROLL_SETTLE = 100; // Small buffer after max-height transition starts
+const CLOSE_PAPER_DURATION = 300;
+const CLOSE_SLIDE_DURATION = 300;
 
 export const Letters = ({
+  state,
+  setState,
   isActive,
   isCompleted,
   completePart,
   requestDialogue,
   hasSeenDialogue,
   markDialogueSeen,
+  increaseAffinity,
 }: SectionProps) => {
   const hasQueuedIntroRef = useRef(false);
-  const [openedLetters, setOpenedLetters] = useState<string[]>([]);
-  const [activeLetter, setActiveLetter] = useState<number | null>(null);
+  const reducedMotion = useReducedMotion();
 
+  // --- State ---
+  const [openedLetters, setOpenedLetters] = useState<string[]>([]);
+  const [firstOpenedLetters, setFirstOpenedLetters] = useState<Set<string>>(new Set());
+  const [activeLetter, setActiveLetter] = useState<number | null>(null);
+  const [animPhase, setAnimPhase] = useState<LetterAnimPhase>("idle");
+  const [pendingLetter, setPendingLetter] = useState<{ index: number; senderId: string } | null>(null);
+  const [viewerMessageMember, setViewerMessageMember] = useState<{ member: GuideCharacter; content: string } | null>(null);
+
+  // Refs for animation timers so we can clean up
+  const animTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const teamLetters = useMemo<TeamLetter[]>(
+    () => [
+      { sender: guides.kagura, ...memberLetters.kagura },
+      { sender: guides.imed, ...memberLetters.imed },
+      { sender: guides.anChi, ...memberLetters["an-chi"] },
+      { sender: guides.lilWayne, ...memberLetters["lil-wayne"] },
+      { sender: guides.nova, ...memberLetters.nova },
+      { sender: guides.stone, ...memberLetters.stone },
+    ],
+    [],
+  );
+
+  // Cleanup animation timers on unmount
+  useEffect(() => {
+    return () => {
+      if (animTimerRef.current) {
+        clearTimeout(animTimerRef.current);
+      }
+    };
+  }, []);
+
+  // --- Intro dialogue ---
   useEffect(() => {
     const dialogueId = "dialogue:letters:intro";
     if (!isActive || hasSeenDialogue(dialogueId) || hasQueuedIntroRef.current) {
@@ -36,100 +93,328 @@ export const Letters = ({
 
     requestDialogue({
       speaker: guides.kagura,
-      lines: ["Chúng tớ cũng có vài dòng muốn gửi đến hai cậu đây."],
+      lines: ["Tụi tớ có vài dòng muốn để lại riêng cho hai cậu ở đây."],
       mood: "intimate",
     });
-  }, [isActive, hasSeenDialogue, markDialogueSeen, requestDialogue]);
+  }, [hasSeenDialogue, isActive, markDialogueSeen, requestDialogue]);
 
-  const handleContinue = () => {
-    completePart("letters");
+  // --- Journey completion ---
+  const handleContinue = useCallback((awardAchievement = openedLetters.length >= teamLetters.length) => {
+    completePart("letters", { awardAchievement });
     requestDialogue({
       speaker: guides.kagura,
-      lines: ["Vậy là thư đã đủ rồi. Trước hồi kết, hãy ghé qua khung ảnh của cả team nhé."],
+      lines: [
+        "Những lời nhắn đã ở đây đầy đủ rồi.",
+        "Trước hồi kết, hãy ghé qua khung ảnh của những người đã gửi món quà này nhé.",
+      ],
       mood: "soft",
     });
-  };
+  }, [completePart, openedLetters.length, requestDialogue, teamLetters.length]);
 
-  const handleOpenLetter = (index: number, senderId: string) => {
-    setActiveLetter(index);
-    if (!openedLetters.includes(senderId)) {
-      const newOpened = [...openedLetters, senderId];
-      setOpenedLetters(newOpened);
+  // --- Mark letter as read & check completion ---
+  const markLetterOpened = useCallback(
+    (senderId: string) => {
+      setOpenedLetters((prev) => {
+        if (prev.includes(senderId)) return prev;
+        const newOpened = [...prev, senderId];
+        if (newOpened.length === teamLetters.length && !isCompleted) {
+          // Use setTimeout to avoid nested setState during render
+          setTimeout(() => handleContinue(true), 0);
+        }
+        return newOpened;
+      });
+    },
+    [handleContinue, isCompleted, teamLetters.length],
+  );
 
-      if (newOpened.length === teamLetters.length && !isCompleted) {
-        handleContinue();
+  // --- Open animation sequence ---
+  const startOpenSequence = useCallback(
+    (index: number, senderId: string) => {
+      const isFirstOpen = !firstOpenedLetters.has(senderId);
+
+      setActiveLetter(index);
+      markLetterOpened(senderId);
+
+      if (reducedMotion) {
+        // Reduced motion: skip all motion, jump to open
+        setAnimPhase("open");
+        setFirstOpenedLetters((prev) => new Set(prev).add(senderId));
+        return;
       }
+
+      if (isFirstOpen) {
+        // Full sequence: flap → slide → unroll → open
+        setAnimPhase("flap");
+
+        animTimerRef.current = setTimeout(() => {
+          setAnimPhase("slide");
+
+          animTimerRef.current = setTimeout(() => {
+            setAnimPhase("unroll");
+
+            animTimerRef.current = setTimeout(() => {
+              setAnimPhase("open");
+              setFirstOpenedLetters((prev) => new Set(prev).add(senderId));
+            }, UNROLL_SETTLE);
+          }, SLIDE_DURATION);
+        }, FLAP_DURATION);
+      } else {
+        // Re-open: skip flap & slide, go straight to fast unroll
+        setAnimPhase("unroll");
+
+        animTimerRef.current = setTimeout(() => {
+          setAnimPhase("open");
+        }, UNROLL_SETTLE);
+      }
+    },
+    [firstOpenedLetters, markLetterOpened, reducedMotion],
+  );
+
+  // --- Close animation sequence ---
+  const startCloseSequence = useCallback(
+    (onComplete: () => void) => {
+      if (reducedMotion || animPhase === "idle") {
+        onComplete();
+        return;
+      }
+
+      // Reverse: close paper → slide back → flap close
+      setAnimPhase("closing-paper");
+
+      animTimerRef.current = setTimeout(() => {
+        setAnimPhase("closing-slide");
+
+        animTimerRef.current = setTimeout(() => {
+          setAnimPhase("idle");
+          setActiveLetter(null);
+          onComplete();
+        }, CLOSE_SLIDE_DURATION);
+      }, CLOSE_PAPER_DURATION);
+    },
+    [animPhase, reducedMotion],
+  );
+
+  // --- Handle envelope click ---
+  const handleOpenLetter = useCallback(
+    (index: number, senderId: string) => {
+      // If clicking the same letter that's already open, ignore
+      if (activeLetter === index && (animPhase === "open" || animPhase === "unroll")) {
+        return;
+      }
+
+      // If a close animation is in progress, queue this letter
+      if (animPhase.startsWith("closing")) {
+        setPendingLetter({ index, senderId });
+        return;
+      }
+
+      // If another letter is open, close it first then open the new one
+      if (activeLetter !== null && animPhase !== "idle") {
+        setPendingLetter({ index, senderId });
+        startCloseSequence(() => {
+          // The pending letter will be opened via the effect below
+        });
+        return;
+      }
+
+      // Nothing open — start opening directly
+      startOpenSequence(index, senderId);
+    },
+    [activeLetter, animPhase, startCloseSequence, startOpenSequence],
+  );
+
+  // --- Process pending letter after close completes ---
+  useEffect(() => {
+    if (animPhase === "idle" && pendingLetter) {
+      const { index, senderId } = pendingLetter;
+      setPendingLetter(null);
+      startOpenSequence(index, senderId);
+    }
+  }, [animPhase, pendingLetter, startOpenSequence]);
+
+  // --- Close letter ---
+  const closeLetter = useCallback(() => {
+    if (reducedMotion) {
+      setAnimPhase("idle");
+      setActiveLetter(null);
+      return;
+    }
+
+    startCloseSequence(() => {
+      // Already handled in close sequence
+    });
+  }, [reducedMotion, startCloseSequence]);
+
+  // --- Reply handler (unchanged logic) ---
+  const handleReply = (sender: GuideCharacter) => {
+    if (state.letterReplies.includes(sender.id)) {
+      return;
+    }
+
+    setState((prev) => ({
+      ...prev,
+      letterReplies: [...prev.letterReplies, sender.id],
+    }));
+
+    increaseAffinity?.(sender.id, 3);
+
+    const replyData = letterReplyDialogues[sender.id];
+    if (replyData) {
+      requestDialogue({
+        speaker: sender,
+        mood: replyData.mood,
+        lines: replyData.lines,
+      });
     }
   };
 
-  const closeLetter = () => {
-    setActiveLetter(null);
-  };
+  // --- Derived animation states ---
+  const isFlapOpen = animPhase === "flap" || animPhase === "slide" || animPhase === "unroll" || animPhase === "open";
+  const isSlideVisible = animPhase === "slide" || animPhase === "unroll" || animPhase === "open";
+  const isClosingPhase = animPhase.startsWith("closing");
+  const isPaperUnrolled = animPhase === "unroll" || animPhase === "open";
+  const isPaperClosing = animPhase === "closing-paper";
+  const isFirstOpenForActive = activeLetter !== null && !firstOpenedLetters.has(teamLetters[activeLetter]?.sender.id);
+  const isFastUnroll = activeLetter !== null && !isFirstOpenForActive && !reducedMotion;
+
+  // Build letterPaper class
+  const letterPaperClass = [
+    styles.letterPaper,
+    isPaperUnrolled ? styles.unrolled : "",
+    isPaperClosing ? styles.closing : "",
+    isFastUnroll ? styles.fastUnroll : "",
+    reducedMotion ? styles.reducedMotion : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+
+  // Build letterSlideWrapper class
+  const slideWrapperClass = [
+    styles.letterSlideWrapper,
+    isSlideVisible && !isClosingPhase ? styles.slideVisible : "",
+    reducedMotion ? `${styles.reducedMotion} ${styles.slideVisible}` : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
 
   return (
     <div className={styles.lettersContainer}>
-      <h2 className={styles.title}>TEAM LETTERS</h2>
-      
+      <h2 className={styles.title}>LỜI NHẮN GỬI HAI CẬU</h2>
+
       <div className={styles.envelopesGrid}>
         {teamLetters.map((letter, index) => {
           const isOpened = openedLetters.includes(letter.sender.id);
           const isActiveEnvelope = activeLetter === index;
+          const showFlap = isActiveEnvelope && isFlapOpen && !reducedMotion;
+
+          // Build envelope class
+          const envelopeClass = [
+            styles.envelope,
+            isOpened ? styles.opened : styles.unread,
+            isActiveEnvelope ? styles.active : "",
+            showFlap ? styles.flapOpen : "",
+            letter.sender.id === "kagura" ? styles.leaderEnvelope : "",
+          ]
+            .filter(Boolean)
+            .join(" ");
+
+          // Guide color as CSS custom property for glow
+          const guideColorGlow = letter.sender.color
+            ? `${letter.sender.color}66` // Hex color + ~40% alpha
+            : undefined;
+
           return (
             <button
               key={letter.sender.id}
-              className={`${styles.envelope} ${isOpened ? styles.opened : ""} ${isActiveEnvelope ? styles.active : ""}`}
+              className={envelopeClass}
+              style={
+                {
+                  "--guide-color-glow": guideColorGlow ?? "rgba(216, 180, 92, 0.4)",
+                } as React.CSSProperties
+              }
               onClick={() => handleOpenLetter(index, letter.sender.id)}
               type="button"
             >
-              <div className={styles.envelopeIcon} style={{ color: letter.sender.color }}>
-                {isOpened ? "📭" : "📫"}
-              </div>
-              <div className={styles.senderName} style={{ color: letter.sender.color }}>
-                {letter.sender.name}
+              <div className={styles.envelopeInner}>
+                {/* Envelope flap (3D fold element) */}
+                <div className={styles.envelopeFlap} />
+                <div className={styles.envelopeIcon} style={{ color: letter.sender.color }}>
+                  {isOpened ? "💌" : "📫"}
+                </div>
+                <div className={styles.senderName} style={{ color: letter.sender.color }}>
+                  {letter.sender.name}
+                </div>
               </div>
             </button>
           );
         })}
       </div>
 
-      {activeLetter !== null && (
-        <div key={activeLetter} className={styles.letterInPlaceContainer}>
-          <div className={styles.scrollLetter}>
-            <div className={styles.rodTop}></div>
-            <article className={styles.letterPaper}>
-              <button className={styles.closeButton} onClick={closeLetter}>×</button>
-              
-              <p className={styles.letterGreeting} style={{ color: teamLetters[activeLetter].sender.color }}>
-                Từ: {teamLetters[activeLetter].sender.name}
-              </p>
-              
-              <p className={styles.letterBody}>
-                {teamLetters[activeLetter].content}
-              </p>
-              
-              <p className={styles.letterSignoff}>Thương mến,</p>
-              <p className={styles.letterSign} style={{ color: teamLetters[activeLetter].sender.color }}>
-                {teamLetters[activeLetter].sender.name}
-              </p>
-            </article>
-            <div className={styles.rodBottom}></div>
+      {activeLetter !== null ? (
+        <div className={styles.letterInPlaceContainer}>
+          <div className={slideWrapperClass}>
+            <div className={styles.scrollLetter}>
+              <div className={styles.rodTop} />
+              <article className={letterPaperClass}>
+                <button className={styles.closeButton} onClick={closeLetter} type="button" aria-label="Đóng thư">
+                  ×
+                </button>
+
+                <p className={styles.letterGreeting} style={{ color: teamLetters[activeLetter].sender.color }}>
+                  {teamLetters[activeLetter].title}
+                </p>
+
+                <p className={styles.letterBody}>{teamLetters[activeLetter].content}</p>
+
+                <p className={styles.letterSignoff}>Thương mến,</p>
+                <p className={styles.letterSign} style={{ color: teamLetters[activeLetter].sender.color }}>
+                  {teamLetters[activeLetter].closing}
+                </p>
+
+                <button
+                  className={styles.viewerMessageButton}
+                  onClick={() => {
+                    const letter = teamLetters[activeLetter];
+                    setViewerMessageMember({
+                      member: letter.sender,
+                      content: letter.content,
+                    });
+                  }}
+                  type="button"
+                >
+                  {state.letterReplies.includes(teamLetters[activeLetter].sender.id) ? "Mở lại dấu sao" : "Để lại dấu sao"} cho {teamLetters[activeLetter].sender.name}
+                </button>
+              </article>
+              <div className={styles.rodBottom} />
+            </div>
           </div>
         </div>
-      )}
+      ) : null}
 
-      {isCompleted && (
+      {isCompleted ? (
         <div className={styles.completedMessage}>
-          Đã nhận được toàn bộ thư. Con đường đến khung ảnh team đã mở ra.
+          Tất cả thư đã mở. Con đường dẫn tới khung ảnh sau tín hiệu đã sẵn sàng.
         </div>
-      )}
+      ) : null}
 
-      {!isCompleted && (
-        <div style={{ marginTop: '2rem', textAlign: 'center', position: 'relative', zIndex: 10 }}>
-          <button className="primaryAction" type="button" onClick={handleContinue}>
+      {!isCompleted ? (
+        <div style={{ marginTop: "2rem", textAlign: "center", position: "relative", zIndex: 10 }}>
+          <button className="primaryAction" type="button" onClick={() => handleContinue()}>
             Tiếp tục hành trình
           </button>
         </div>
-      )}
+      ) : null}
+
+      {viewerMessageMember ? (
+        <Suspense fallback={null}>
+          <LetterModal
+            member={viewerMessageMember.member}
+            letterContent={viewerMessageMember.content}
+            onSent={() => handleReply(viewerMessageMember.member)}
+            onClose={() => setViewerMessageMember(null)}
+          />
+        </Suspense>
+      ) : null}
     </div>
   );
 };

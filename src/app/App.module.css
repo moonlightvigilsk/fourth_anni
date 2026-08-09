@@ -24,6 +24,35 @@
   z-index: 2;
 }
 
+.lazyFallback {
+  display: grid;
+  min-height: 100vh;
+  place-items: center;
+  opacity: 0.42;
+}
+
+.lazyFallbackStar {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--cream);
+  box-shadow: 0 0 18px rgba(216, 180, 92, 0.52);
+  animation: sectionPulse 1.4s ease-in-out infinite;
+}
+
+@keyframes sectionPulse {
+  0%,
+  100% {
+    opacity: 0.2;
+    transform: scale(0.8);
+  }
+
+  50% {
+    opacity: 1;
+    transform: scale(1.2);
+  }
+}
+
 .starlogFab,
 .rewindFab {
   position: fixed;

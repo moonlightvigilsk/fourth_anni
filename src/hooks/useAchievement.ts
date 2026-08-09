@@ -1,4 +1,4 @@
-import { Dispatch, SetStateAction, useCallback, useEffect, useState } from "react";
+import { Dispatch, SetStateAction, useCallback, useEffect, useRef, useState } from "react";
 import { getAchievement } from "../lib/achievements";
 import { audioManager } from "../lib/audioManager";
 import { AppState } from "../lib/storage";
@@ -13,12 +13,16 @@ export const useAchievement = (
   setState: Dispatch<SetStateAction<AppState>>,
 ) => {
   const [toast, setToast] = useState<ToastState>(null);
+  const unlockedRef = useRef(new Set(state.achievements));
+  unlockedRef.current = new Set(state.achievements);
 
   const unlock = useCallback(
     (id: string) => {
-      if (state.achievements.includes(id)) {
+      const achievement = getAchievement(id);
+      if (!achievement || unlockedRef.current.has(id)) {
         return;
       }
+      unlockedRef.current.add(id);
 
       setState((previous) => {
         if (previous.achievements.includes(id)) {
@@ -31,13 +35,10 @@ export const useAchievement = (
         };
       });
 
-      const achievement = getAchievement(id);
-      if (achievement) {
-        setToast({ id, title: achievement.title });
-        void audioManager.start().then(() => audioManager.playAchievementCue(achievement.tier));
-      }
+      setToast({ id, title: achievement.title });
+      void audioManager.start().then(() => audioManager.playAchievementCue(achievement.tier));
     },
-    [setState, state.achievements],
+    [setState],
   );
 
   useEffect(() => {

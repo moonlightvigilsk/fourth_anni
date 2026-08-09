@@ -151,7 +151,7 @@ export const MemoryFlipGame = ({ onComplete, onBack }: { onComplete: (isWin: boo
       </div>
 
       {gameState === "end" && (
-        <div className={styles.minigameResult}>
+        <div className={`${styles.minigameResult} ${isWin ? styles.resultWinScene : styles.resultLoseScene}`}>
           <h2 className={`${styles.resultTitle} ${isWin ? styles.win : styles.lose}`}>
             {isWin ? "THÀNH CÔNG" : "THẤT BẠI"}
           </h2>

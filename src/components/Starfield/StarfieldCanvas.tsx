@@ -45,6 +45,8 @@ export const StarfieldCanvas = ({
     clickRef.current = onStarClick;
   }, [onStarClick]);
 
+
+
   useEffect(() => {
     const canvas = canvasRef.current;
     const context = canvas?.getContext("2d");
@@ -52,6 +54,11 @@ export const StarfieldCanvas = ({
     if (!canvas || !context) {
       return undefined;
     }
+
+    // Reset styles on mount/restart
+    canvas.style.opacity = "1";
+    canvas.style.transition = "";
+    canvas.style.pointerEvents = clickRef.current ? "auto" : "none";
 
     let frame = 0;
     let resizeFrame = 0;
@@ -67,6 +74,7 @@ export const StarfieldCanvas = ({
     const targetFrameMs = backdropOnly ? BACKDROP_FRAME_MS : INTERACTIVE_FRAME_MS;
     const staticLayer = document.createElement("canvas");
     const staticContext = staticLayer.getContext("2d");
+
     const meteors = [
       { delay: 0, duration: 1100, cycle: 9200, startX: 0.1, startY: 0.18, travelX: 0.34, travelY: 0.2 },
       { delay: 4800, duration: 900, cycle: 11800, startX: 0.56, startY: 0.12, travelX: 0.28, travelY: 0.18 },

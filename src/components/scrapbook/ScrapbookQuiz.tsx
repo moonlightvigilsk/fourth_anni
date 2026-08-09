@@ -94,8 +94,10 @@ export const ScrapbookQuiz = ({
         return;
       }
       const availableQuestions = quizQuestions.filter((q) => !state.usedQuizIds.includes(q.id));
-      // If we somehow run out, just recycle them, but rule is fail 3 times -> game over anyway
       const pool = availableQuestions.length >= 5 ? availableQuestions : quizQuestions;
+      if (availableQuestions.length < 5 && state.usedQuizIds.length > 0) {
+        setState((prev) => ({ ...prev, usedQuizIds: [] }));
+      }
       const shuffled = shuffleArray(pool);
       setCurrentRun(shuffled.slice(0, 5));
       setCurrentIndex(0);
@@ -226,7 +228,7 @@ export const ScrapbookQuiz = ({
               className={`${styles.nextButton} ${styles.wrong}`}
               style={{ marginTop: '2rem', borderColor: '#d8b45c', color: '#d8b45c' }}
               onClick={() => {
-                setState(prev => ({ ...prev, quizFails: 0 }));
+                setState(prev => ({ ...prev, quizFails: 0, usedQuizIds: [] }));
                 setGameFailed(false);
                 setCurrentRun([]);
               }}

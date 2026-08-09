@@ -1,5 +1,5 @@
 type Mood = "vhs" | "interlude" | "sky" | "scrapbook" | "tarot" | "gacha" | "finale" | "quiet";
-type UiSound = "next" | "unlock" | "draw" | "star" | "insert" | "tracking" | "play";
+type UiSound = "next" | "unlock" | "draw" | "star" | "insert" | "tracking" | "play" | "click";
 
 let toneModule: typeof import("tone") | null = null;
 let synth: import("tone").PolySynth | null = null;
@@ -82,11 +82,37 @@ export const audioManager = {
         insert: "C3",
         tracking: "F#4",
         play: "C4",
+        click: "D5",
       };
       const duration = currentMood === "tarot" ? "12n" : "24n";
       synth.triggerAttackRelease(noteMap[type], duration);
     } catch {
       // Audio is a progressive enhancement in this phase.
+    }
+  },
+
+  playGameResultCue(isWin: boolean) {
+    if (!started || muted || !toneModule || !synth || !pianoSynth || !clackNoise) {
+      return;
+    }
+
+    try {
+      const now = toneModule.now();
+      if (isWin) {
+        clackNoise.triggerAttackRelease("64n", now, 0.12);
+        synth.triggerAttackRelease(["C5", "E5", "G5"], "16n", now + 0.02, 0.32);
+        pianoSynth.triggerAttackRelease("C5", "32n", now + 0.02, 0.24);
+        pianoSynth.triggerAttackRelease("E5", "32n", now + 0.16, 0.26);
+        pianoSynth.triggerAttackRelease("G5", "32n", now + 0.28, 0.28);
+        pianoSynth.triggerAttackRelease("C6", "8n", now + 0.44, 0.34);
+        synth.triggerAttackRelease(["G5", "C6"], "8n", now + 0.48, 0.22);
+        return;
+      }
+
+      synth.triggerAttackRelease("C3", "16n", now, 0.24);
+      pianoSynth.triggerAttackRelease(["A2", "D3"], "8n", now + 0.08, 0.22);
+    } catch {
+      // Minigame audio should never block result state.
     }
   },
 

@@ -3,7 +3,7 @@ import styles from "./minigames.module.css";
 import { randomInRange } from "../lib/random";
 
 const GAME_DURATION = 60;
-const WIN_SCORE = 5000;
+const WIN_SCORE = 4000;
 
 type Zones = {
   okayLeft: number;
@@ -195,7 +195,7 @@ export const SignalTimingGame = ({ onComplete, onBack }: { onComplete: (isWin: b
       </div>
 
       {gameState === "end" && (
-        <div className={styles.minigameResult}>
+        <div className={`${styles.minigameResult} ${isWin ? styles.resultWinScene : styles.resultLoseScene}`}>
           <h2 className={`${styles.resultTitle} ${isWin ? styles.win : styles.lose}`}>
             {isWin ? "THÀNH CÔNG" : "THẤT BẠI"}
           </h2>

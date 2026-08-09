@@ -1,5 +1,5 @@
-import type { ComponentType } from "react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { ComponentType, LazyExoticComponent } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AchievementToast } from "../components/AchievementToast/AchievementToast";
 import { CometEvent } from "../components/CometEvent/CometEvent";
 import { CursorTrail } from "../components/CursorTrail/CursorTrail";
@@ -15,7 +15,7 @@ import { GuidedTour } from "../components/GuidedTour/GuidedTour";
 import { WarmupChallenge } from "../components/WarmupChallenge/WarmupChallenge";
 import { journeyParts } from "../data/journey";
 import { ambientDialogues } from "../data/ambientDialogues";
-import { guides } from "../data/guides";
+import { guides, guideList } from "../data/guides";
 import { useAchievement } from "../hooks/useAchievement";
 import { useAffinity } from "../hooks/useAffinity";
 import { useJourneyProgress } from "../hooks/useJourneyProgress";
@@ -27,19 +27,32 @@ import { CometInterlude } from "../sections/CometInterlude";
 import { Constellation } from "../sections/Constellation";
 import { DialogueOverlayRequest, SectionProps } from "../sections/sectionTypes";
 import { Finale } from "../sections/Finale";
-import { Gacha } from "../sections/Gacha";
 import { MoonPhase } from "../sections/MoonPhase";
 import { VtuberArt } from "../sections/VtuberArt";
-import { Scrapbook } from "../sections/Scrapbook";
 import { TapeIntro } from "../sections/TapeIntro";
-import { Tarot } from "../sections/Tarot";
 import { SecretCipher } from "../sections/SecretCipher";
 import { Wishes } from "../sections/Wishes";
 import { Letters } from "../sections/Letters";
 import { TeamGallery } from "../sections/TeamGallery";
-import { MinigamesHub } from "../minigames/MinigamesHub";
 import "../sections/sections.css";
 import styles from "./App.module.css";
+
+type JourneySectionComponent = ComponentType<SectionProps> | LazyExoticComponent<ComponentType<SectionProps>>;
+
+const Scrapbook = lazy(() => import("../sections/Scrapbook").then((module) => ({ default: module.Scrapbook })));
+const Tarot = lazy(() => import("../sections/Tarot").then((module) => ({ default: module.Tarot })));
+const Gacha = lazy(() => import("../sections/Gacha").then((module) => ({ default: module.Gacha })));
+const MinigamesHub = lazy(() =>
+  import("../minigames/MinigamesHub").then((module) => ({ default: module.MinigamesHub })),
+);
+
+const lazyPartIds = new Set<PartId>(["scrapbook", "tarot", "gacha"]);
+
+const SectionFallback = () => (
+  <div className={styles.lazyFallback} aria-hidden="true">
+    <span className={styles.lazyFallbackStar} />
+  </div>
+);
 
 const partComponentMap = {
   constellation: Constellation,
@@ -53,7 +66,7 @@ const partComponentMap = {
   letters: Letters,
   teamGallery: TeamGallery,
   finale: Finale,
-} satisfies Record<PartId, ComponentType<SectionProps>>;
+} satisfies Record<PartId, JourneySectionComponent>;
 
 const getResumePartId = (completedParts: PartId[]): PartId => {
   return journeyParts.find((part) => !completedParts.includes(part.id))?.id ?? "finale";
@@ -84,6 +97,7 @@ export const App = () => {
   const [showWarmup, setShowWarmup] = useState(false);
   const [guidedTourStep, setGuidedTourStep] = useState<"starlog" | "minigame" | "scroll" | null>(null);
   const [starlogOpen, setStarlogOpen] = useState(false);
+  const [showFinaleScreen, setShowFinaleScreen] = useState(false);
   const [isTarotJournalOpen, setIsTarotJournalOpen] = useState(false);
   const [dialogueQueue, setDialogueQueue] = useState<DialogueOverlayRequest[]>([]);
   const { unlock, toast } = useAchievement(state, setState);
@@ -92,6 +106,7 @@ export const App = () => {
   const activeDialogue = dialogueQueue[0] ?? null;
   const lastAmbientDialogueIdRef = useRef<string | null>(null);
   const lastAmbientDialogueAtRef = useRef(0);
+
 
   const requestDialogue = useCallback((dialogue: DialogueOverlayRequest) => {
     setDialogueQueue((previous) => [...previous, dialogue]);
@@ -115,10 +130,48 @@ export const App = () => {
     setState((previous) => ({
       ...previous,
       visitCount: previous.visitCount + 1,
+      // Reset per-visit affinity interaction flags
+      pokedCharacters: [],
+      charmBonusGranted: false,
     }));
   }, [setState]);
 
+  useEffect(() => {
+    // A reload should return to the website itself. The finale is an explicit
+    // fullscreen experience and must only open from its own button.
+    if ("scrollRestoration" in window.history) {
+      window.history.scrollRestoration = "manual";
+    }
+    window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+  }, []);
 
+  useEffect(() => {
+    if (!state.hasStarted || journey.activePartId === state.activePartId) {
+      return;
+    }
+
+    setState((previous) => {
+      if (previous.activePartId === journey.activePartId) {
+        return previous;
+      }
+
+      return {
+        ...previous,
+        activePartId: journey.activePartId,
+        currentSection: journey.activePartId,
+      };
+    });
+  }, [journey.activePartId, setState, state.activePartId, state.hasStarted]);
+
+  // ─── Charm Passive Affinity ───────────────────────────────────────
+  useEffect(() => {
+    if (!state.hasStarted || !state.pinnedCharm || state.charmBonusGranted) return;
+
+    // Grant +1 affinity to a random character once per visit
+    const randomGuide = guideList[Math.floor(Math.random() * guideList.length)];
+    setState(prev => ({ ...prev, charmBonusGranted: true }));
+    increaseAffinity(randomGuide.id, 1);
+  }, [state.hasStarted, state.pinnedCharm, state.charmBonusGranted, setState, increaseAffinity]);
 
   const closeActiveDialogue = useCallback(() => {
     setDialogueQueue((previous) => previous.slice(1));
@@ -206,31 +259,30 @@ export const App = () => {
       }, 120);
     };
     const introDialogues: DialogueOverlayRequest[] = [
-      { speaker: guides.kagura, lines: ["Xin chào, chúng tớ là LL Team"], mood: "soft" },
-      { speaker: guides.kagura, lines: ["Tớ tên là Nhiên Anh, rất vui được chào hai cậu, tớ là leader của LL Team"], mood: "soft" },
+      { speaker: guides.kagura, lines: ["Xin chào Linh Lan và Lan Linh, tụi tớ có một món quà nhỏ gửi tới hai cậu."], mood: "soft" },
+      { speaker: guides.kagura, lines: ["Tớ tên là Nhiên Anh, rất vui được chào hai cậu và dẫn hai cậu đi qua món quà này."], mood: "soft" },
       { speaker: guides.imed, lines: ["Tớ là Demi, phụ trách code, âm thanh và content của game."], mood: "soft" },
       { speaker: guides.anChi, lines: ["Còn tớ là An Chi. Tớ giữ mạch kể chuyện, những tín hiệu nhỏ và cả mấy lá bài hơi khó giải thích."], mood: "mysterious" },
-      { speaker: guides.lilWayne, lines: ["Lô. Bổn tôn là Lil'Wayne. Bổn tôn làm bố ở đây."], mood: "funny" },
-      { speaker: guides.nova, lines: ["Nói cái gì thế, đứa nào đánh nó một phát coi"], mood: "funny" },
-      { speaker: guides.lilWayne, lines: ["Á thôi thôi, tớ là Lil'Wayne, code chơi chơi mấy cái vui vui hoặc đôi lúc chả vui lắm"], mood: "funny" },
-      { speaker: guides.lilWayne, lines: ["Nhớ mặt đấy"], mood: "funny" },
-      { speaker: guides.kuro, lines: ["Còn tớ là Mashiro, tớ lo phần nội dung và quản mấy nhóc này khỏi làm loạn."], mood: "soft" },
+      { speaker: guides.lilWayne, lines: ["Lô. Bổn tôn là Lil' Wayne. Bổn tôn làm bố ở đây."], mood: "funny" },
+      { speaker: guides.nova, lines: ["Nói cái gì thế, đứa nào đánh nó một phát coi."], mood: "funny" },
+      { speaker: guides.lilWayne, lines: ["Á thôi thôi, tớ là Lil' Wayne, code chơi chơi mấy cái vui vui hoặc đôi lúc chả vui lắm."], mood: "funny" },
+      { speaker: guides.lilWayne, lines: ["Nhớ mặt đấy."], mood: "funny" },
       { speaker: guides.nova, lines: ["Đây là Ren Phạm, nhớ lấy. Đây phụ trách kiểm tra mọi thứ xem có ổn không."], mood: "serious" },
       { speaker: guides.stone, lines: ["Tớ là Akatsuki Đập đá, người thổi chuyển động vào những cảnh mà các cậu sắp đi qua."], mood: "soft" },
-      { speaker: guides.anChi, lines: ["Chúng tớ có sứ mệnh là sẽ dẫn dắt các cậu tìm tới ý nghĩa của con đường này"], mood: "mysterious" },
+      { speaker: guides.anChi, lines: ["Chúng tớ có sứ mệnh là sẽ dẫn dắt các cậu tìm tới ý nghĩa của con đường này."], mood: "mysterious" },
       { speaker: guides.nova, lines: ["Cơ mà, do những thế lực hắc ám, chúng tớ không thể trực tiếp tác động lên những thử thách mà cậu sẽ phải vượt qua."], mood: "serious" },
       { speaker: guides.kagura, lines: ["Chúng ta sẽ cùng đến với thử thách đầu tiên nhé?"], mood: "soft" },
-      { speaker: guides.stone, lines: ["Bầu trời đêm thật đẹp phải không? Những ánh sao lấp lánh khiến cho tớ luôn thấy yên bình mỗi lần ngắm nhìn nó"], mood: "intimate" },
-      { speaker: guides.anChi, lines: ["Người ta bảo nó cũng ẩn chứa những ý nghĩa, bản chất và năng lượng của con người đấy"], mood: "mysterious" },
+      { speaker: guides.stone, lines: ["Bầu trời đêm thật đẹp phải không? Những ánh sao lấp lánh khiến cho tớ luôn thấy yên bình mỗi lần ngắm nhìn nó."], mood: "intimate" },
+      { speaker: guides.anChi, lines: ["Người ta bảo nó cũng ẩn chứa những ý nghĩa, bản chất và năng lượng của con người đấy."], mood: "mysterious" },
       { speaker: guides.lilWayne, lines: ["Tao tưởng cái đấy là bịa ra để lừa trẻ con?"], mood: "funny" },
       { speaker: guides.kagura, lines: ["Suỵt nào, ai lại nói huỵch toẹt thế?"], mood: "funny" },
       { speaker: guides.lilWayne, lines: ["Ờ ờ..."], mood: "funny" },
-      { speaker: guides.anChi, lines: ["Quay lại với vấn đề nhé, mỗi cách sắp xếp, các góc độ của từng ngôi sao đều là những phóng chiếu của vũ trụ lên các thực thể sống"], mood: "mysterious" },
-      { speaker: guides.kuro, lines: ["Tất nhiên là có cả hai cậu rồi, hai nàng tinh linh bánh ngọt của chúng tớ"], mood: "intimate" },
-      { speaker: guides.kagura, lines: ["Nhiệm vụ đầu tiên của các cậu, sẽ là tìm Tam Giác mùa hè trên bầu trời kia"], mood: "serious" },
+      { speaker: guides.anChi, lines: ["Quay lại với vấn đề nhé, mỗi cách sắp xếp, các góc độ của từng ngôi sao đều là những phóng chiếu của vũ trụ lên các thực thể sống."], mood: "mysterious" },
+      { speaker: guides.kagura, lines: ["Tất nhiên là có cả hai cậu rồi, hai nàng tinh linh bánh ngọt của chúng tớ."], mood: "intimate" },
+      { speaker: guides.kagura, lines: ["Nhiệm vụ đầu tiên của các cậu sẽ là tìm Tam Giác mùa hè trên bầu trời kia."], mood: "serious" },
       { speaker: guides.anChi, lines: ["Các cậu sẽ có được sự hướng dẫn của chúng tớ, nên đừng lo nhé!"], mood: "soft" },
       { speaker: guides.stone, lines: ["À, nó cũng là bầu trời sao vào đúng ngày này 4 năm trước đó!"], mood: "mysterious" },
-      { speaker: guides.kagura, lines: ["Chúc may mắn"], mood: "soft", onComplete: () => {
+      { speaker: guides.kagura, lines: ["Chúc may mắn."], mood: "soft", onComplete: () => {
         if (!state.hasSeenGuidedTour) {
           setShowGuidedTour(true);
           setGuidedTourStep("starlog");
@@ -337,6 +389,35 @@ export const App = () => {
     }, 120);
   }, [state.completedParts, unlock]);
 
+  const openStarlog = useCallback(() => setStarlogOpen(true), []);
+  const closeStarlog = useCallback(() => setStarlogOpen(false), []);
+  const openTarotJournal = useCallback(() => setIsTarotJournalOpen(true), []);
+  const closeTarotJournal = useCallback(() => setIsTarotJournalOpen(false), []);
+  const openMinigameHub = useCallback(() => setIsMinigameHubOpen(true), []);
+  const closeFinaleScreen = useCallback(() => setShowFinaleScreen(false), []);
+  const openFinaleScreen = useCallback(() => setShowFinaleScreen(true), []);
+  const closeMinigameHub = useCallback(() => setIsMinigameHubOpen(false), []);
+  const anyTopLevelModalOpen = starlogOpen || isTarotJournalOpen || isMinigameHubOpen;
+
+  useEffect(() => {
+    const handleButtonSound = (event: PointerEvent) => {
+      const target = event.target instanceof Element ? event.target : null;
+      const control = target?.closest("button,[role='button']");
+      if (!control || control.getAttribute("data-audio") === "quiet") {
+        return;
+      }
+
+      if (control instanceof HTMLButtonElement && control.disabled) {
+        return;
+      }
+
+      void audioManager.start().then(() => audioManager.playUiSound("click"));
+    };
+
+    document.addEventListener("pointerup", handleButtonSound, true);
+    return () => document.removeEventListener("pointerup", handleButtonSound, true);
+  }, []);
+
   const sectionBaseProps = useMemo(
     () => ({
       state,
@@ -346,13 +427,30 @@ export const App = () => {
       requestDialogue,
       markDialogueSeen,
       hasSeenDialogue,
-      openStarlog: () => setStarlogOpen(true),
-      openTarotJournal: () => setIsTarotJournalOpen(true),
+      openStarlog,
+      openTarotJournal,
+      onClose: closeFinaleScreen,
+      openFinale: openFinaleScreen,
+      increaseAffinity,
     }),
-    [hasSeenDialogue, journey.completePart, markDialogueSeen, requestDialogue, setState, state, unlock],
+    [
+      closeFinaleScreen,
+      hasSeenDialogue,
+      increaseAffinity,
+      journey.completePart,
+      markDialogueSeen,
+      openFinaleScreen,
+      openStarlog,
+      openTarotJournal,
+      requestDialogue,
+      setState,
+      state,
+      unlock,
+    ],
   );
 
-  const visibleParts = journeyParts.filter((part) => journey.getPartStatus(part.id) !== "locked");
+  const visibleParts = journeyParts.filter((part) => part.id !== "finale" && journey.getPartStatus(part.id) !== "locked");
+  const teamGalleryStatus = journey.getPartStatus("teamGallery");
 
   return (
     <div className={styles.app}>
@@ -360,7 +458,7 @@ export const App = () => {
         <StarfieldCanvas
           stars={backgroundStars}
           unlockedStars={state.unlockedStars}
-          bright={state.activePartId === "finale"}
+          bright={journey.activePartId === "finale"}
           showMoon
         />
       </div>
@@ -377,7 +475,7 @@ export const App = () => {
         )
       ) : (
         <>
-          <main className={styles.journeyPage}>
+          <main className={styles.journeyPage} aria-hidden={anyTopLevelModalOpen ? true : undefined}>
             {visibleParts.map((part) => {
               const status = journey.getPartStatus(part.id);
               const PartComponent = partComponentMap[part.id];
@@ -390,19 +488,63 @@ export const App = () => {
                   status={status}
                   noFrame={part.id === "gacha"}
                 >
-                  <PartComponent
-                    {...sectionBaseProps}
-                    isActive={status === "active"}
-                    isCompleted={status === "completed"}
-                  />
+                  {lazyPartIds.has(part.id) ? (
+                    <Suspense fallback={<SectionFallback />}>
+                      <PartComponent
+                        {...sectionBaseProps}
+                        isActive={status === "active"}
+                        isCompleted={status === "completed"}
+                      />
+                    </Suspense>
+                  ) : (
+                    <PartComponent
+                      {...sectionBaseProps}
+                      isActive={status === "active"}
+                      isCompleted={status === "completed"}
+                    />
+                  )}
                 </JourneyPart>
               );
             })}
+
+            {teamGalleryStatus !== "locked" ? (
+              <div className="teamGalleryJourneyBridgeStage">
+                <section className="teamGalleryJourneyBridge" aria-label="Đi đến chặng cuối hành trình">
+                  <div className="teamGalleryJourneyBridgeIcon" aria-hidden="true">✦</div>
+                  <span>FINAL CHAPTER</span>
+                  <h3>Nào, cùng đi đến những bước cuối của cuộc hành trình</h3>
+                  <p>Những tín hiệu cuối cùng đang chờ ở phía trước.</p>
+                  <button
+                    className="primaryAction"
+                    type="button"
+                    onClick={() => {
+                      if (teamGalleryStatus !== "completed") {
+                        journey.completePart("teamGallery");
+                      }
+                      openFinaleScreen();
+                    }}
+                  >
+                    {teamGalleryStatus === "completed" ? "Xem lại chặng cuối" : "Đi đến hồi kết"}{" "}
+                    <span aria-hidden="true">→</span>
+                  </button>
+                </section>
+              </div>
+            ) : null}
           </main>
+          
+          {showFinaleScreen && (
+            <Finale
+              {...sectionBaseProps}
+              isActive={true}
+              isCompleted={state.completedParts.includes("finale")}
+            />
+          )}
+
           <button
             className={styles.starlogFab}
+            style={showGuidedTour ? { zIndex: 60 } : undefined}
             type="button"
-            onClick={() => setStarlogOpen(true)}
+            onClick={openStarlog}
             aria-label="Open Starlog"
             title="Starlog"
           >
@@ -410,8 +552,9 @@ export const App = () => {
           </button>
           <button
             className={styles.arcadeFab}
+            style={showGuidedTour ? { zIndex: 60 } : undefined}
             type="button"
-            onClick={() => setIsMinigameHubOpen(true)}
+            onClick={openMinigameHub}
             aria-label="Open Minigames"
             title="Mini Games (Gacha Farm)"
           >
@@ -421,12 +564,14 @@ export const App = () => {
       )}
 
       {isMinigameHubOpen && (
-        <MinigamesHub
-          state={state}
-          setState={setState}
-          onClose={() => setIsMinigameHubOpen(false)}
-          increaseAffinity={increaseAffinity}
-        />
+        <Suspense fallback={null}>
+          <MinigamesHub
+            state={state}
+            setState={setState}
+            onClose={closeMinigameHub}
+            increaseAffinity={increaseAffinity}
+          />
+        </Suspense>
       )}
 
       {state.hasStarted && !showCometInterlude && <CometEvent onCatch={handleCatchComet} />}
@@ -451,10 +596,18 @@ export const App = () => {
       {showWarmup && <WarmupChallenge requestDialogue={requestDialogue} onComplete={handleWarmupComplete} />}
 
       {isTarotJournalOpen && (
-        <TarotJournal state={state} setState={setState} onClose={() => setIsTarotJournalOpen(false)} />
+        <TarotJournal state={state} setState={setState} onClose={closeTarotJournal} />
       )}
 
-      <StarlogDrawer open={starlogOpen} state={state} onClose={() => setStarlogOpen(false)} openTarotJournal={() => setIsTarotJournalOpen(true)} />
+      <StarlogDrawer
+        open={starlogOpen}
+        state={state}
+        setState={setState}
+        onClose={closeStarlog}
+        openTarotJournal={openTarotJournal}
+        increaseAffinity={increaseAffinity}
+        isObscured={isTarotJournalOpen}
+      />
       <AchievementToast id={toast?.id} title={toast?.title} />
     </div>
   );

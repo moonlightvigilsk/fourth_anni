@@ -1,6 +1,7 @@
 import { AnimatePresence, motion } from "motion/react";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { GuideCharacter } from "../../data/guides";
+import { isPortraitCached, preloadPortrait } from "../../lib/portraitCache";
 import { DialogueBox } from "../DialogueBox/DialogueBox";
 import styles from "./VisualNovelOverlay.module.css";
 
@@ -42,6 +43,9 @@ export const VisualNovelOverlay = ({
   onSkip,
 }: VisualNovelOverlayProps) => {
   const resolvedAlign = align ?? speaker.align;
+  const [portraitReady, setPortraitReady] = useState(() =>
+    !speaker.artSrc || isPortraitCached(speaker.id),
+  );
 
   useEffect(() => {
     if (!open) {
@@ -59,10 +63,42 @@ export const VisualNovelOverlay = ({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [onClose, onComplete, open]);
 
+  useEffect(() => {
+    if (!open || !speaker.artSrc) {
+      setPortraitReady(true);
+      return undefined;
+    }
+
+    if (isPortraitCached(speaker.id)) {
+      setPortraitReady(true);
+      return undefined;
+    }
+
+    let cancelled = false;
+    setPortraitReady(false);
+
+    void preloadPortrait(speaker.id, speaker.artSrc)
+      .then(() => {
+        if (!cancelled) {
+          setPortraitReady(true);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setPortraitReady(true);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [open, speaker.artSrc, speaker.id]);
+
   const finish = () => {
     onComplete?.();
     onClose();
   };
+  const overlayRole = dimBackground ? "dialog" : "status";
 
   return (
     <AnimatePresence>
@@ -74,8 +110,8 @@ export const VisualNovelOverlay = ({
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.35, ease: "easeOut" }}
-          role="dialog"
-          aria-label={`${speaker.name} dialogue`}
+          role={overlayRole}
+          aria-label={`Đối thoại của ${speaker.name}`}
           aria-modal={dimBackground}
         >
           <motion.div
@@ -87,15 +123,26 @@ export const VisualNovelOverlay = ({
           >
             <div className={styles.characterGlow} />
             <div className={styles.characterFrame}>
-              {speaker.artSrc ? (
-                <img className={styles.characterImage} src={speaker.artSrc} alt={speaker.name} />
+              {speaker.artSrc && portraitReady ? (
+                <img
+                  className={styles.characterImage}
+                  src={speaker.artSrc}
+                  alt={speaker.name}
+                />
+              ) : speaker.artSrc ? (
+                <div className={styles.characterPlaceholder} aria-label={`Đang tải chân dung của ${speaker.name}`}>
+                  <div className={styles.characterSilhouette}>
+                    <span />
+                  </div>
+                  <div className={styles.characterNameTag}>{speaker.placeholderLabel}</div>
+                </div>
               ) : (
                 <div className={styles.characterPlaceholder}>
                   <div className={styles.characterSilhouette}>
                     <span />
                   </div>
                   <div className={styles.characterNameTag}>{speaker.placeholderLabel}</div>
-                  <p>ART PLACEHOLDER - {speaker.placeholderLabel}</p>
+                  <p>Chân dung đang chờ trong khung này</p>
                 </div>
               )}
             </div>
@@ -115,10 +162,10 @@ export const VisualNovelOverlay = ({
               align={resolvedAlign}
               onComplete={finish}
             />
-            {skipLabel && (
-              <button 
-                type="button" 
-                className={styles.skipButton} 
+            {skipLabel ? (
+              <button
+                type="button"
+                className={styles.skipButton}
                 onClick={() => {
                   if (onSkip) onSkip();
                   finish();
@@ -126,7 +173,7 @@ export const VisualNovelOverlay = ({
               >
                 {skipLabel}
               </button>
-            )}
+            ) : null}
           </motion.div>
         </motion.div>
       ) : null}

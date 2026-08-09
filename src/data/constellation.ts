@@ -262,7 +262,7 @@ export const constellationStars: StarPoint[] = [
   {
     id: "cygnus-a",
     label: "Cygnus A",
-    skyName: "Cygnus A (Thiên hà Radio)",
+    skyName: "Cygnus A",
     x: 62.9,
     y: 38.9,
     radius: 3.6,
@@ -270,7 +270,7 @@ export const constellationStars: StarPoint[] = [
     color: "rgba(168, 146, 214, 0.9)",
     coord: "X 63 / Y 39",
     image: "https://images-assets.nasa.gov/image/GSFC_20171208_Archive_e001262/GSFC_20171208_Archive_e001262~medium.jpg",
-    fact: "Là một trong những nguồn phát sóng vô tuyến mạnh nhất bầu trời. Thực chất đây không phải một ngôi sao, mà là một thiên hà khổng lồ.",
+    fact: "Cygnus A là một thiên hà vô tuyến (Radio Galaxy) khổng lồ, đồng thời là một trong những nguồn phát sóng vô tuyến mạnh nhất bầu trời.",
     astronomy: "Phân loại: Thiên hà vô tuyến hình elip (cD), Khoảng cách: 600 triệu ly, Phát hiện: 1939, Tín hiệu: Vô tuyến siêu mạnh, Tọa độ: RA 19h 59m / Dec +40° 44', Thiên hà: Thiên hà Cygnus A (Độc lập)",
     astrology: "Cygnus A đại diện cho những thông điệp ẩn giấu, sức mạnh to lớn từ khoảng cách xa và sự kết nối vượt thời gian."
   },
@@ -294,7 +294,7 @@ export const constellationStars: StarPoint[] = [
   {
     id: "cygnus-x-1",
     label: "Cygnus X-1",
-    skyName: "Cygnus X-1 (Hố đen)",
+    skyName: "Cygnus X-1",
     x: 62.6,
     y: 47.1,
     radius: 2.4,
@@ -302,7 +302,7 @@ export const constellationStars: StarPoint[] = [
     color: "rgba(146, 214, 255, 0.9)",
     coord: "X 63 / Y 47",
     image: "https://images-assets.nasa.gov/image/behemoth-black-hole-found-in-an-unlikely-place_26209716511_o/behemoth-black-hole-found-in-an-unlikely-place_26209716511_o~medium.jpg",
-    fact: "Thiên thể đầu tiên được giới khoa học công nhận rộng rãi là một hố đen (Black hole). Nó đang từ từ hút và nuốt chửng vật chất từ một ngôi sao khổng lồ xanh lân cận.",
+    fact: "Cygnus X-1 là một hố đen, thiên thể đầu tiên được giới khoa học công nhận rộng rãi là một hố đen (Black hole). Nó đang từ từ hút và nuốt chửng vật chất từ một ngôi sao khổng lồ xanh lân cận.",
     astronomy: "Phân loại: Hố đen khối lượng sao & Sao siêu khổng lồ xanh, Khoảng cách: 7,300 ly, Phát hiện: 1964, Khối lượng: 21.2 khối lượng Mặt Trời, Tọa độ: RA 19h 58m / Dec +35° 12', Chòm sao: Thiên Nga, Thiên hà: Ngân Hà",
     astrology: "Cygnus X-1 mang năng lượng của sự hấp dẫn mãnh liệt không thể chối từ, sự tái cấu trúc và những bí ẩn sâu thẳm nhất."
   },
@@ -310,7 +310,7 @@ export const constellationStars: StarPoint[] = [
   {
     id: "psr-b1919-21",
     label: "PSR B1919",
-    skyName: "PSR B1919+21 (Pulsar)",
+    skyName: "PSR B1919+21",
     x: 41.4,
     y: 67.0,
     radius: 2.5,
@@ -318,7 +318,7 @@ export const constellationStars: StarPoint[] = [
     color: "rgba(180, 255, 216, 0.8)",
     coord: "X 41 / Y 67",
     image: "https://images-assets.nasa.gov/image/PIA21085/PIA21085~medium.jpg",
-    fact: "Sao xung (pulsar) đầu tiên được con người phát hiện. Nó phát ra xung vô tuyến đều đặn chu kỳ 1.33 giây đến mức ban đầu người ta tưởng đó là tín hiệu của người ngoài hành tinh (LGM-1).",
+    fact: "PSR B1919+21 là một sao xung (pulsar) đầu tiên được con người phát hiện. Nó phát ra xung vô tuyến đều đặn chu kỳ 1.33 giây đến mức ban đầu người ta tưởng đó là tín hiệu của người ngoài hành tinh (LGM-1).",
     astronomy: "Phân loại: Sao xung vô tuyến (Pulsar), Khoảng cách: 2,283 ly, Phát hiện: 1967, Chu kỳ quay: 1.337 giây, Tọa độ: RA 19h 21m / Dec +21° 53', Chòm sao: Cáo (Vulpecula), Thiên hà: Ngân Hà",
     astrology: "PSR B1919+21 đại diện cho nhịp đập bền bỉ, sự chính xác tuyệt đối và những thông điệp lạ lùng đánh thức trí tò mò."
   },
@@ -326,7 +326,7 @@ export const constellationStars: StarPoint[] = [
   {
     id: "m57-ring",
     label: "M57",
-    skyName: "Tinh vân Chiếc Nhẫn (M57)",
+    skyName: "Tinh vân Chiếc Nhẫn",
     x: 25.4,
     y: 50.4,
     radius: 3.5,
@@ -334,7 +334,7 @@ export const constellationStars: StarPoint[] = [
     color: "rgba(216, 255, 146, 0.75)",
     coord: "X 25 / Y 50",
     image: "https://images-assets.nasa.gov/image/PIA07343/PIA07343~medium.jpg",
-    fact: "Một tinh vân tuyệt đẹp mang hình dạng chiếc nhẫn phát sáng. Đây thực chất là tàn dư của một ngôi sao giống Mặt Trời đã chết và đẩy lớp vỏ khí của nó ra ngoài vũ trụ.",
+    fact: "Tinh vân Chiếc Nhẫn (M57) là một tinh vân hành tinh tuyệt đẹp mang hình dạng chiếc nhẫn phát sáng. Đây thực chất là tàn dư của một ngôi sao giống Mặt Trời đã chết và đẩy lớp vỏ khí của nó ra ngoài vũ trụ.",
     astronomy: "Phân loại: Tinh vân hành tinh, Khoảng cách: 2,567 ly, Phát hiện: 1779, Cấu trúc: Vỏ khí đang giãn nở, Tọa độ: RA 18h 53m / Dec +33° 01', Chòm sao: Thiên Cầm, Thiên hà: Ngân Hà",
     astrology: "M57 biểu trưng cho vòng tuần hoàn của cái chết và sự tái sinh, vẻ đẹp rực rỡ để lại sau khi kết thúc một hành trình."
   },

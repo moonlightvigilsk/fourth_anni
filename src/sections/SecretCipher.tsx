@@ -78,7 +78,10 @@ export const SecretCipher = ({
   };
 
   const handleContinue = () => {
-    completePart("cipher");
+    completePart("cipher", { awardAchievement: secretGiftOpened });
+    window.setTimeout(() => {
+      document.getElementById("wishes")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 100);
   };
 
   return (
@@ -112,10 +115,13 @@ export const SecretCipher = ({
           ) : null}
         </div>
         
-        {!isCompleted && secretGiftOpened && (
+        {!isCompleted && (
           <div className={styles.continueSection}>
+            {!secretGiftOpened ? (
+              <p className={styles.skipNote}>Chưa tìm ra mật mã? Bạn vẫn có thể tiếp tục và quay lại mở hộp quà sau.</p>
+            ) : null}
             <button className="primaryAction" type="button" onClick={handleContinue}>
-              Tiếp tục hành trình
+              {secretGiftOpened ? "Tiếp tục hành trình" : "Bỏ qua và xem phần tiếp theo"}
             </button>
           </div>
         )}

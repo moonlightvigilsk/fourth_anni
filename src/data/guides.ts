@@ -18,8 +18,8 @@ export const guides = {
     role: "Leader",
     color: "#D8B45C",
     align: "left",
-    artSrc: publicAsset("characters/nhien-anh.png"),
-    placeholderLabel: "NHIEN ANH",
+    artSrc: publicAsset("characters/nhien-anh.webp"),
+    placeholderLabel: "NHIÊN ANH",
     quirk: "short, calm, authority",
   },
   imed: {
@@ -28,7 +28,7 @@ export const guides = {
     role: "Coder / Sound / Writer",
     color: "#22314D",
     align: "left",
-    artSrc: publicAsset("characters/demi.png"),
+    artSrc: publicAsset("characters/demi.webp"),
     placeholderLabel: "DEMI",
     quirk: "writes, deletes, rewrites",
   },
@@ -38,7 +38,7 @@ export const guides = {
     role: "Narrative / Tarot",
     color: "#72C6C8",
     align: "center",
-    artSrc: publicAsset("characters/an-chi.png"),
+    artSrc: publicAsset("characters/an-chi.webp"),
     placeholderLabel: "AN CHI",
     quirk: "quiet, lyrical, keeps the signal steady",
   },
@@ -48,19 +48,9 @@ export const guides = {
     role: "Coder / Writer",
     color: "#7C8798",
     align: "right",
-    artSrc: publicAsset("characters/lil-wayne.png"),
+    artSrc: publicAsset("characters/lil-wayne.webp"),
     placeholderLabel: "LIL' WAYNE",
     quirk: "fast, casual, sometimes no punctuation",
-  },
-  kuro: {
-    id: "kuro",
-    name: "Mashiro",
-    role: "Content / Event",
-    color: "#9DB7A5",
-    align: "right",
-    artSrc: publicAsset("characters/mashiro.png"),
-    placeholderLabel: "MASHIRO",
-    quirk: "slow, observant, long pauses",
   },
   nova: {
     id: "nova",
@@ -68,8 +58,8 @@ export const guides = {
     role: "Evaluator",
     color: "#E58D7A",
     align: "right",
-    artSrc: publicAsset("characters/ren-pham.png"),
-    placeholderLabel: "REN PHAM",
+    artSrc: publicAsset("characters/ren-pham.webp"),
+    placeholderLabel: "REN PHẠM",
     quirk: "deadpan analytical dry humor",
   },
   stone: {
@@ -78,10 +68,20 @@ export const guides = {
     role: "Animator",
     color: "#A892D6",
     align: "left",
-    artSrc: publicAsset("characters/akatsuki.png"),
+    artSrc: publicAsset("characters/akatsuki.webp"),
     placeholderLabel: "AKATSUKI",
     quirk: "few words, deep feeling",
   },
 } satisfies Record<string, GuideCharacter>;
 
 export const guideList: GuideCharacter[] = Object.values(guides);
+
+/** @deprecated Use preloadPortrait from src/lib/portraitCache for per-guide loading. */
+export const preloadGuideImages = () => {
+  guideList.forEach((guide) => {
+    if (guide.artSrc) {
+      const img = new Image();
+      img.src = guide.artSrc;
+    }
+  });
+};

@@ -16,7 +16,7 @@ export const GuidedTour: React.FC<GuidedTourProps> = ({ step, onSkip }) => {
       </button>
 
       {step === "starlog" && (
-        <div className={styles.highlightSpot} style={{ bottom: "2rem", left: "2rem", width: "48px", height: "48px" }}>
+        <div className={styles.highlightSpot} style={{ bottom: "1.4rem", right: "1.4rem", width: "48px", height: "48px" }}>
           <div className={`${styles.tooltip} ${styles.starlog}`}>
             Nhật ký sao lưu kỷ niệm
           </div>
@@ -24,7 +24,7 @@ export const GuidedTour: React.FC<GuidedTourProps> = ({ step, onSkip }) => {
       )}
 
       {step === "minigame" && (
-        <div className={styles.highlightSpot} style={{ bottom: "2rem", right: "2rem", width: "48px", height: "48px" }}>
+        <div className={styles.highlightSpot} style={{ bottom: "1.4rem", right: "calc(1.4rem + 60px)", width: "48px", height: "48px" }}>
           <div className={`${styles.tooltip} ${styles.minigame}`}>
             Trạm giải trí (Minigames)
           </div>

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type SyntheticEvent } from "react";
 import { DialogueOverlayRequest } from "../../sections/sectionTypes";
 import { GuideCharacter, guideList, guides } from "../../data/guides";
 
@@ -10,7 +10,7 @@ type MarginNoteProps = {
   onTrigger: () => void;
 };
 
-export const MarginNote = ({ id, author, text, requestDialogue, onTrigger }: MarginNoteProps) => {
+export const MarginNote = ({ author, text, requestDialogue, onTrigger }: MarginNoteProps) => {
   const [hasClicked, setHasClicked] = useState(false);
 
   const handleClick = () => {
@@ -18,7 +18,7 @@ export const MarginNote = ({ id, author, text, requestDialogue, onTrigger }: Mar
       setHasClicked(true);
       onTrigger();
     }
-    
+
     const speaker: GuideCharacter = guideList.find((guide) => guide.id === author) || guides.lilWayne;
 
     requestDialogue({
@@ -28,15 +28,25 @@ export const MarginNote = ({ id, author, text, requestDialogue, onTrigger }: Mar
     });
   };
 
+  const stopPageFlipGesture = (event: SyntheticEvent) => {
+    event.stopPropagation();
+  };
+
   return (
-    <div 
-      className={`marginNote ${hasClicked ? 'clicked' : ''}`} 
+    <button
+      type="button"
+      className={`marginNote ${hasClicked ? "clicked" : ""}`}
       onClick={handleClick}
-      role="button"
-      tabIndex={0}
+      onPointerDownCapture={stopPageFlipGesture}
+      onMouseDownCapture={stopPageFlipGesture}
+      onTouchStartCapture={stopPageFlipGesture}
+      onPointerDown={stopPageFlipGesture}
+      onMouseDown={stopPageFlipGesture}
+      onTouchStart={stopPageFlipGesture}
+      aria-label={`Mở ghi chú của ${author}`}
     >
       <span className="noteText">{text}</span>
-      <span className="noteAuthor">— {author}</span>
-    </div>
+      <span className="noteAuthor">- {author}</span>
+    </button>
   );
 };

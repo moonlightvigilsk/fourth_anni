@@ -1,0 +1,22 @@
+export const starAffinityMap: Record<string, string> = {
+  "vega": "kagura",
+  "deneb": "imed",
+  "altair": "lil-wayne",
+  "albireo": "nova",
+  "epsilon-lyrae": "stone",
+  "sadr": "kagura",
+  "gienah": "lil-wayne",
+  "fawaris": "imed",
+  "sheliak": "an-chi",
+  "sulafat": "nova",
+  "tarazed": "stone",
+  "alshain": "an-chi",
+  "sualocin": "imed",
+  "rotanev": "imed",
+  "cygnus-a": "an-chi",
+  "kepler-186": "kagura",
+  "cygnus-x-1": "an-chi",
+  "psr-b1919-21": "imed",
+  "m57-ring": "an-chi",
+  "ngc-6946": "imed"
+};

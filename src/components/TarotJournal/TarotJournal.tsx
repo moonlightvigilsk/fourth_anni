@@ -1,5 +1,6 @@
-import React from "react";
+import React, { useRef } from "react";
 import { AppState, SavedTarotCard } from "../../lib/storage";
+import { useModalA11y } from "../../hooks/useModalA11y";
 import styles from "./TarotJournal.module.css";
 
 interface TarotJournalProps {
@@ -9,10 +10,19 @@ interface TarotJournalProps {
 }
 
 export const TarotJournal = ({ state, setState, onClose }: TarotJournalProps) => {
+  const modalRef = useRef<HTMLDivElement | null>(null);
+
+  useModalA11y({
+    isOpen: true,
+    onClose,
+    id: "tarot-journal",
+    containerRef: modalRef,
+  });
+
   const pinCard = (card: SavedTarotCard, readingCreatedAt: string) => {
     setState((prev) => ({
       ...prev,
-      pinnedCharm: { ...card, _createdAt: readingCreatedAt } as any, // Attach timestamp to differentiate
+      pinnedCharm: { ...card, _createdAt: readingCreatedAt } as any,
     }));
   };
 
@@ -25,11 +35,19 @@ export const TarotJournal = ({ state, setState, onClose }: TarotJournalProps) =>
 
   return (
     <div className={styles.overlay} onClick={onClose}>
-      <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
-        <button className={styles.closeBtn} onClick={onClose}>
+      <div
+        ref={modalRef}
+        className={styles.modal}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="tarot-journal-title"
+        tabIndex={-1}
+        onClick={(event) => event.stopPropagation()}
+      >
+        <button type="button" className={styles.closeBtn} onClick={onClose} aria-label="Đóng nhật ký tarot">
           &times;
         </button>
-        <h2 className={styles.title}>Nhật Ký Trải Bài Tarot</h2>
+        <h2 id="tarot-journal-title" className={styles.title}>Nhật ký trải bài tarot</h2>
 
         <div className={styles.historyList}>
           {state.tarotHistory.length === 0 ? (
@@ -46,22 +64,22 @@ export const TarotJournal = ({ state, setState, onClose }: TarotJournalProps) =>
                     })}
                   </span>
                 </div>
-                {reading.question && <p className={styles.question}>"{reading.question}"</p>}
+                {reading.question ? <p className={styles.question}>"{reading.question}"</p> : null}
 
                 <div className={styles.cardsRow}>
-                  {reading.cards.map((card, cIndex) => {
+                  {reading.cards.map((card, cardIndex) => {
                     const isPinned =
                       state.pinnedCharm?.id === card.id &&
                       state.pinnedCharm?.orientation === card.orientation &&
                       (state.pinnedCharm as any)._createdAt === reading.createdAt;
 
                     return (
-                      <div key={cIndex} className={styles.cardInfo}>
+                      <div key={cardIndex} className={styles.cardInfo}>
                         <div className={styles.cardHeader}>
                           <span className={styles.cardPos}>{card.positionLabel}</span>
-                          {card.orientation === "reversed" && (
+                          {card.orientation === "reversed" ? (
                             <span className={styles.reversedBadge}>Ngược</span>
-                          )}
+                          ) : null}
                         </div>
                         <h4 className={styles.cardName}>{card.viName}</h4>
                         <p className={styles.cardKeywords}>{card.keywords.join(", ")}</p>

@@ -1,5 +1,7 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type SyntheticEvent } from "react";
+import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "motion/react";
+import { useModalA11y } from "../../hooks/useModalA11y";
 
 type PolaroidProps = {
   id: string;
@@ -17,15 +19,37 @@ const isRenderableMediaPath = (value: string) => {
 export const Polaroid = ({ id, mediaPlaceholder, caption, rotation = 0, isLarge = false, isVideo = false }: PolaroidProps) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [hasMediaError, setHasMediaError] = useState(false);
+  const lightboxRef = useRef<HTMLDivElement | null>(null);
 
   const clampedRotation = Math.max(-4, Math.min(4, rotation));
   const shouldRenderMedia = isRenderableMediaPath(mediaPlaceholder) && !hasMediaError;
+  const titleId = `${id}-lightbox-title`;
+
+  const closeExpanded = useCallback(() => {
+    setIsExpanded(false);
+  }, []);
+
+  useModalA11y({
+    isOpen: isExpanded,
+    onClose: closeExpanded,
+    id: `scrapbook-polaroid-${id}`,
+    containerRef: lightboxRef,
+  });
 
   useEffect(() => {
     setHasMediaError(false);
   }, [mediaPlaceholder]);
 
-  const renderMedia = (expanded: boolean = false) => {
+  const stopPageFlipGesture = (event: SyntheticEvent) => {
+    event.stopPropagation();
+  };
+
+  const openExpanded = (event: SyntheticEvent) => {
+    event.stopPropagation();
+    setIsExpanded(true);
+  };
+
+  const renderMedia = (expanded = false) => {
     const mediaClassName = `polaroidMedia ${isVideo ? "video" : "image"} ${expanded ? "large" : ""} ${shouldRenderMedia ? "realMedia" : ""}`;
 
     if (isVideo) {
@@ -64,38 +88,60 @@ export const Polaroid = ({ id, mediaPlaceholder, caption, rotation = 0, isLarge 
 
   return (
     <>
-      <div 
-        className={`scrapbookPolaroid ${isLarge ? 'large' : 'small'}`}
+      <button
+        type="button"
+        className={`scrapbookPolaroid ${isLarge ? "large" : "small"}`}
         style={{ transform: `rotate(${clampedRotation}deg)` }}
-        onClick={() => setIsExpanded(true)}
+        onClick={openExpanded}
+        onPointerDownCapture={stopPageFlipGesture}
+        onMouseDownCapture={stopPageFlipGesture}
+        onTouchStartCapture={stopPageFlipGesture}
+        onPointerDown={stopPageFlipGesture}
+        onMouseDown={stopPageFlipGesture}
+        onTouchStart={stopPageFlipGesture}
+        aria-label={`Mở ${isVideo ? "video" : "ảnh"} scrapbook: ${caption ?? mediaPlaceholder}`}
       >
         <div className="washiTape top" />
         <div className="washiTape bottom" />
         {renderMedia(false)}
-        {caption && <div className="polaroidCaption">{caption}</div>}
-      </div>
+        {caption ? <div className="polaroidCaption">{caption}</div> : null}
+      </button>
 
       <AnimatePresence>
-        {isExpanded && (
-          <motion.div 
+        {isExpanded && typeof document !== "undefined" && createPortal(
+          <motion.div
+            key={`${id}-lightbox`}
             className="polaroidLightbox"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            onClick={() => setIsExpanded(false)}
+            onClick={closeExpanded}
+            onPointerDown={stopPageFlipGesture}
           >
-            <motion.div 
+            <motion.div
+              ref={lightboxRef}
               className="lightboxContent"
               initial={{ scale: 0.9, y: 20 }}
               animate={{ scale: 1, y: 0 }}
               exit={{ scale: 0.9, y: 20 }}
-              onClick={(e) => e.stopPropagation()}
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby={titleId}
+              tabIndex={-1}
+              onClick={stopPageFlipGesture}
+              onPointerDown={stopPageFlipGesture}
             >
+              <h3 id={titleId} className="sr-only">
+                {caption ?? (isVideo ? "Video scrapbook" : "Ảnh scrapbook")}
+              </h3>
               {renderMedia(true)}
-              {caption && <div className="polaroidCaption large">{caption}</div>}
-              <button className="closeBtn" onClick={() => setIsExpanded(false)}>✕</button>
+              {caption ? <div className="polaroidCaption large">{caption}</div> : null}
+              <button className="closeBtn" type="button" onClick={closeExpanded} aria-label="Đóng">
+                ×
+              </button>
             </motion.div>
-          </motion.div>
+          </motion.div>,
+          document.body,
         )}
       </AnimatePresence>
     </>

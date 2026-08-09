@@ -36,7 +36,7 @@ const featuredTarotCards: TarotCard[] = [
     name: "The Fool",
     viName: "Kẻ Khởi Hành",
     arcana: "major",
-    image: publicAsset("cards/the-fool.jpg"),
+    image: publicAsset("cards/the-fool.webp"),
     upright: {
       keywords: ["khởi đầu", "tự do", "niềm tin"],
       general: [
@@ -99,7 +99,7 @@ const featuredTarotCards: TarotCard[] = [
     name: "The Magician",
     viName: "Nhà Giả Kim",
     arcana: "major",
-    image: publicAsset("cards/the-magician.jpg"),
+    image: publicAsset("cards/the-magician.webp"),
     upright: {
       keywords: ["ý chí", "kỹ năng", "biến hóa"],
       general: [
@@ -162,7 +162,7 @@ const featuredTarotCards: TarotCard[] = [
     name: "The High Priestess",
     viName: "Nữ Tư Tế",
     arcana: "major",
-    image: publicAsset("cards/the-high-priestess.jpg"),
+    image: publicAsset("cards/the-high-priestess.webp"),
     upright: {
       keywords: ["trực giác", "bí mật", "lắng nghe"],
       general: [
@@ -225,7 +225,7 @@ const featuredTarotCards: TarotCard[] = [
     name: "The Lovers",
     viName: "Những Người Yêu Nhau",
     arcana: "major",
-    image: publicAsset("cards/the-lovers.jpg"),
+    image: publicAsset("cards/the-lovers.webp"),
     upright: {
       keywords: ["kết nối", "lựa chọn", "hòa hợp"],
       general: [
@@ -288,7 +288,7 @@ const featuredTarotCards: TarotCard[] = [
     name: "The Chariot",
     viName: "Cỗ Xe Chiến",
     arcana: "major",
-    image: publicAsset("cards/the-chariot.jpg"),
+    image: publicAsset("cards/the-chariot.webp"),
     upright: {
       keywords: ["tiến lên", "kỷ luật", "định hướng"],
       general: [
@@ -351,7 +351,7 @@ const featuredTarotCards: TarotCard[] = [
     name: "Strength",
     viName: "Sức Mạnh Dịu Dàng",
     arcana: "major",
-    image: publicAsset("cards/strength.jpg"),
+    image: publicAsset("cards/strength.webp"),
     upright: {
       keywords: ["can đảm", "dịu dàng", "kiên nhẫn"],
       general: [
@@ -414,7 +414,7 @@ const featuredTarotCards: TarotCard[] = [
     name: "The Hermit",
     viName: "Ẩn Sĩ",
     arcana: "major",
-    image: publicAsset("cards/the-hermit.jpg"),
+    image: publicAsset("cards/the-hermit.webp"),
     upright: {
       keywords: ["soi đường", "một mình", "chiêm nghiệm"],
       general: [
@@ -477,7 +477,7 @@ const featuredTarotCards: TarotCard[] = [
     name: "Wheel of Fortune",
     viName: "Bánh Xe Vận Hội",
     arcana: "major",
-    image: publicAsset("cards/wheel-of-fortune.jpg"),
+    image: publicAsset("cards/wheel-of-fortune.webp"),
     upright: {
       keywords: ["chu kỳ", "chuyển động", "cơ hội"],
       general: [
@@ -540,7 +540,7 @@ const featuredTarotCards: TarotCard[] = [
     name: "The Moon",
     viName: "Mặt Trăng",
     arcana: "major",
-    image: publicAsset("cards/the-moon.jpg"),
+    image: publicAsset("cards/the-moon.webp"),
     upright: {
       keywords: ["mơ hồ", "tiềm thức", "ảo ảnh"],
       general: [
@@ -603,7 +603,7 @@ const featuredTarotCards: TarotCard[] = [
     name: "The World",
     viName: "Thế Giới",
     arcana: "major",
-    image: publicAsset("cards/the-world.jpg"),
+    image: publicAsset("cards/the-world.webp"),
     upright: {
       keywords: ["hoàn tất", "trọn vẹn", "mở rộng"],
       general: [
@@ -1012,7 +1012,7 @@ const makeGeneratedMajorCard = (card: GeneratedMajorCard): TarotCard => ({
   name: card.name,
   viName: card.viName,
   arcana: "major",
-  image: publicAsset(`cards/${card.id}.jpg`),
+  image: publicAsset(`cards/${card.id}.webp`),
   upright: makeMeaningGroup(card.uprightKeywords, card.viName, card.uprightEssence, "upright"),
   reversed: makeMeaningGroup(card.reversedKeywords, card.viName, card.reversedEssence, "reversed"),
 });
@@ -1027,7 +1027,7 @@ const makeGeneratedMinorCard = (suit: GeneratedMinorSuit, rank: GeneratedMinorRa
     viName,
     arcana: "minor",
     suit: suit.id,
-    image: publicAsset(`cards/${rank.id}-of-${suit.id}.jpg`),
+    image: publicAsset(`cards/${rank.id}-of-${suit.id}.webp`),
     upright: makeMeaningGroup(
       [...rank.uprightKeywords, ...suit.uprightKeywords],
       viName,

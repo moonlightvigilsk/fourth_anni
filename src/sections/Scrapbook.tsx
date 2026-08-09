@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useMemo, useState, useRef } from "react";
 import HTMLFlipBook from "react-pageflip";
 import { guides } from "../data/guides";
 import { linhLanChapters, lanLinhChapters, ScrapbookChapter } from "../data/scrapbook";
@@ -20,7 +20,7 @@ const Page = React.forwardRef<HTMLDivElement, { children: React.ReactNode; class
 );
 Page.displayName = "Page";
 
-export const Scrapbook = ({
+export const Scrapbook = React.memo(({
   state,
   setState,
   completePart,
@@ -44,6 +44,15 @@ export const Scrapbook = ({
   const scrollTracker = useRef({ lastTime: 0, count: 0 });
   const bookRef = useRef<any>(null);
   const hasQueuedIntroRef = useRef(false);
+  const polaroidRotations = useMemo(() => {
+    const chapters = [...linhLanChapters, ...lanLinhChapters];
+    return Object.fromEntries(
+      chapters.flatMap((ch) => [
+        [`img-${ch.id}`, Math.random() * 8 - 4],
+        [`vid-${ch.id}`, Math.random() * 8 - 4],
+      ]),
+    ) as Record<string, number>;
+  }, []);
 
   // Derive chapter index (each chapter has 4 pages, so pageIndex / 4)
   const currentChapterIndex = Math.floor(pageIndex / 4);
@@ -259,7 +268,7 @@ export const Scrapbook = ({
                       id={`img-${ch.id}`}
                       mediaPlaceholder={ch.image}
                       isLarge={true}
-                      rotation={Math.random() * 8 - 4} 
+                      rotation={polaroidRotations[`img-${ch.id}`] ?? 0}
                     />
                     <div className="polaroidCaptionHandwritten">
                       {ch.imageCaption}
@@ -283,7 +292,7 @@ export const Scrapbook = ({
                       mediaPlaceholder={ch.video}
                       isLarge={true}
                       isVideo={true}
-                      rotation={Math.random() * 8 - 4}
+                      rotation={polaroidRotations[`vid-${ch.id}`] ?? 0}
                     />
                     <div className="polaroidCaptionHandwritten" style={{ marginTop: '2rem' }}>
                       {ch.videoCaption}
@@ -333,4 +342,4 @@ export const Scrapbook = ({
       ) : null}
     </div>
   );
-};
+});

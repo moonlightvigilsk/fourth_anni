@@ -96,12 +96,12 @@ export const TapeIntro = ({ onPlay }: TapeIntroProps) => {
   };
 
   return (
-    <section className={styles.tapeIntro} aria-label="Anniversary tape intro">
+    <section className={styles.tapeIntro} aria-label="Mở đầu cuộn băng kỷ niệm">
       <div className={styles.noise} aria-hidden="true" />
       <div className={styles.bootScene} aria-hidden="true">
         <div className={styles.tvSet}>
           <div className={styles.tvScreen}>
-            <span>AV 02</span>
+            <span>&Bloom</span>
           </div>
           <div className={styles.tvBase} />
         </div>
@@ -134,11 +134,11 @@ export const TapeIntro = ({ onPlay }: TapeIntroProps) => {
               <div
                 className={styles.memoryProgress}
                 role="progressbar"
-                aria-label="Tracking memory signal"
+                aria-label="Tiến độ dò tín hiệu ký ức"
                 aria-valuemin={0}
                 aria-valuemax={100}
                 aria-valuenow={trackingPercent}
-                aria-valuetext={`${trackingPercent}% tracked`}
+                aria-valuetext={`${trackingPercent}% đã dò xong`}
               >
                 <span style={{ transform: `scaleX(${trackingPercent / 100})` }} />
               </div>
@@ -153,12 +153,11 @@ export const TapeIntro = ({ onPlay }: TapeIntroProps) => {
                 <em>{"\u00d7"}</em>
                 <span>LAN LINH</span>
               </h1>
-              <h2>CUỘN BĂNG KỶ NIỆM 4 NĂM</h2>
+              <h2>Fourth year debut anniversary</h2>
               <p>20.08.2022 - 20.08.2026</p>
               <button type="button" onClick={handlePlay}>
-                [ NHẤN PLAY ĐỂ BẮT ĐẦU ]
+                [ Press here to start ]
               </button>
-              <small>Ghi hình bởi: LL Team</small>
             </div>
           )}
         </div>

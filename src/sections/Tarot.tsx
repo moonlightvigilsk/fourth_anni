@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { memo, useEffect, useRef, useState } from "react";
 import { TarotReading, TarotReadingResult } from "../components/TarotReading";
 import { guides } from "../data/guides";
 import { audioManager } from "../lib/audioManager";
@@ -12,7 +12,8 @@ const threeCardPositions = [
   { id: "advice", label: "Lời khuyên" },
 ] as const;
 
-export const Tarot = ({
+export const Tarot = memo(({
+  state,
   setState,
   completePart,
   requestDialogue,
@@ -20,6 +21,7 @@ export const Tarot = ({
   hasSeenDialogue,
   isActive,
   isCompleted,
+  increaseAffinity,
 }: SectionProps) => {
   const rootRef = useRef<HTMLDivElement | null>(null);
   const hasQueuedIntroRef = useRef(false);
@@ -69,7 +71,7 @@ export const Tarot = ({
         mood: "funny",
       },
       {
-        speaker: guides.kuro,
+        speaker: guides.stone,
         lines: ["Ngộ quá ha?"],
         mood: "funny",
       },
@@ -97,7 +99,8 @@ export const Tarot = ({
     dialogues.forEach(requestDialogue);
   }, [hasSeenDialogue, isActive, isInView, markDialogueSeen, requestDialogue]);
 
-  const [readingFinished, setReadingFinished] = useState(false);
+  const [readingFinished, setReadingFinished] = useState(state.tarotReading !== null);
+  const [interpreterSelected, setInterpreterSelected] = useState(state.tarotReading !== null && state.tarotInterpretedBy.length > 0);
 
   const handleReadingComplete = (reading: TarotReadingResult) => {
     audioManager.setMood("tarot");
@@ -135,10 +138,33 @@ export const Tarot = ({
     setReadingFinished(true);
   };
 
+  const handleInterpret = (characterId: string) => {
+    increaseAffinity?.(characterId, 2);
+    setState(prev => ({
+      ...prev,
+      tarotInterpretedBy: [...prev.tarotInterpretedBy, characterId],
+    }));
+    setInterpreterSelected(true);
+  };
+
+  const handleReset = () => {
+    setState((prev) => ({
+      ...prev,
+      tarotReading: null,
+    }));
+    setReadingFinished(false);
+    setInterpreterSelected(false);
+  };
+
   return (
     <div className="partStack tarotSectionWrapper" ref={rootRef}>
-      <TarotReading onReadingComplete={handleReadingComplete} />
-      {readingFinished && !isCompleted && (
+      <TarotReading
+        onReadingComplete={handleReadingComplete}
+        onInterpret={handleInterpret}
+        savedReading={state.tarotReading}
+        onReset={handleReset}
+      />
+      {readingFinished && interpreterSelected && !isCompleted && (
         <div style={{ display: 'flex', justifyContent: 'center', marginTop: '3rem', position: 'relative', zIndex: 10 }}>
           <button 
             className="primaryAction" 
@@ -167,4 +193,4 @@ export const Tarot = ({
       )}
     </div>
   );
-};
+});

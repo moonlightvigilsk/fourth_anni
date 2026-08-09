@@ -1,11 +1,13 @@
-import { useState } from "react";
+import { memo, useRef, useState } from "react";
 import { AppState } from "../lib/storage";
+import { useModalA11y } from "../hooks/useModalA11y";
 import styles from "./minigames.module.css";
 import { SignalTimingGame } from "./SignalTimingGame";
 import { MemoryCatchGame } from "./MemoryCatchGame";
 import { MemoryFlipGame } from "./MemoryFlipGame";
 import { SignalRepairCoopGame } from "./SignalRepairCoopGame";
 import { BalanceCoopGame } from "./BalanceCoopGame";
+import { audioManager } from "../lib/audioManager";
 
 type MinigamesHubProps = {
   state: AppState;
@@ -14,19 +16,34 @@ type MinigamesHubProps = {
   increaseAffinity?: (characterId: string, amount: number) => void;
 };
 
+export type MinigameType = "solo" | "coop";
+
 type GameConfig = {
   id: string;
   title: string;
   desc: string;
-  type: "solo" | "coop";
+  type: MinigameType;
   component: React.ComponentType<{ onComplete: (isWin: boolean) => void; onBack: () => void }>;
+};
+
+export const MINIGAME_REWARD_BY_TYPE: Record<MinigameType, number> = {
+  solo: 2,
+  coop: 4,
+};
+
+export const MINIGAME_TYPES: Record<string, MinigameType> = {
+  signalTiming: "solo",
+  memoryCatch: "solo",
+  memoryFlip: "solo",
+  signalRepairCoop: "coop",
+  balanceCoop: "coop",
 };
 
 const GAMES: GameConfig[] = [
   {
     id: "signalTiming",
     title: "Căn Chỉnh Tín Hiệu",
-    desc: "Căn đúng thời điểm tín hiệu đi qua vùng an toàn để nhận điểm. Đạt 1500 điểm để thắng.",
+    desc: "Căn đúng thời điểm tín hiệu đi qua vùng an toàn để nhận điểm. Đạt 4000 điểm để thắng.",
     type: "solo",
     component: SignalTimingGame,
   },
@@ -60,12 +77,22 @@ const GAMES: GameConfig[] = [
   },
 ];
 
-export const MinigamesHub = ({ state, setState, onClose, increaseAffinity }: MinigamesHubProps) => {
+export const MinigamesHub = memo(({ state, setState, onClose, increaseAffinity }: MinigamesHubProps) => {
+  const containerRef = useRef<HTMLDivElement | null>(null);
   const [activeGameId, setActiveGameId] = useState<string | null>(null);
+
+  useModalA11y({
+    isOpen: true,
+    onClose,
+    id: "minigames-hub",
+    containerRef,
+  });
 
   const ActiveGameComponent = GAMES.find((g) => g.id === activeGameId)?.component;
 
   const handleGameComplete = (gameId: string, isWin: boolean) => {
+    void audioManager.start().then(() => audioManager.playGameResultCue(isWin));
+
     setState((prev) => {
       const stats = prev.minigameRecords[gameId] || { plays: 0, wins: 0 };
       return {
@@ -87,7 +114,15 @@ export const MinigamesHub = ({ state, setState, onClose, increaseAffinity }: Min
 
   return (
     <div className={styles.hubOverlay}>
-      <div className={styles.hubContainer}>
+      <div
+        ref={containerRef}
+        className={styles.hubContainer}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="minigames-hub-title"
+        tabIndex={-1}
+      >
+        <h2 id="minigames-hub-title" className="sr-only">Mini Games</h2>
         {activeGameId && ActiveGameComponent ? (
           <ActiveGameComponent
             onComplete={(isWin) => handleGameComplete(activeGameId, isWin)}
@@ -97,9 +132,9 @@ export const MinigamesHub = ({ state, setState, onClose, increaseAffinity }: Min
           <>
             <div className={styles.hubHeader}>
               <div>
-                <h2 className={styles.hubTitle}>Gacha Ticket Farm</h2>
+                <h2 className={styles.hubTitle}>Trạm Mini Game Dấu Sao</h2>
               </div>
-              <button className={styles.closeButton} onClick={onClose} aria-label="Close">
+              <button type="button" className={styles.closeButton} onClick={onClose} aria-label="Đóng mini game">
                 &times;
               </button>
             </div>
@@ -107,19 +142,20 @@ export const MinigamesHub = ({ state, setState, onClose, increaseAffinity }: Min
             <div className={styles.gameGrid}>
               {GAMES.map((game) => {
                 const stats = state.minigameRecords[game.id] || { plays: 0, wins: 0 };
+                const reward = MINIGAME_REWARD_BY_TYPE[game.type];
                 return (
                   <div key={game.id} className={styles.gameCard} data-type={game.type}>
                     <div className={`${styles.gameType} ${styles[game.type]}`}>{game.type}</div>
                     <h3 className={styles.gameTitle}>{game.title}</h3>
                     <p className={styles.gameDesc}>{game.desc}</p>
                     <div className={styles.gameStats}>
-                      Đã chơi: {stats.plays} | Thắng: {stats.wins}
+                      Đã chơi: {stats.plays} | Thắng: {stats.wins} | +{reward} lượt gacha/win
                     </div>
                     <button
                       className={styles.playButton}
                       onClick={() => setActiveGameId(game.id)}
                     >
-                      Play
+                      Chơi
                     </button>
                   </div>
                 );
@@ -130,4 +166,4 @@ export const MinigamesHub = ({ state, setState, onClose, increaseAffinity }: Min
       </div>
     </div>
   );
-};
+});

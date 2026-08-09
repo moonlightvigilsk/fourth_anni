@@ -4,16 +4,14 @@ import { SectionProps } from "./sectionTypes";
 
 const vtuberArtSlots = [
   {
-    name: "Linh Lan",
-    label: "VTuber I",
+    name: "Nika Linh Lan",
     imageSrc: "",
-    note: "Khung art dành cho Linh Lan. Có thể đặt ảnh tại public/vtubers/linh-lan.png rồi gắn vào đây.",
+    note: "Một khung lưu niệm dành riêng cho Linh Lan.",
   },
   {
-    name: "Lan Linh",
-    label: "VTuber II",
+    name: "Nika Lan Linh",
     imageSrc: "",
-    note: "Khung art dành cho Lan Linh. Có thể đặt ảnh tại public/vtubers/lan-linh.png rồi gắn vào đây.",
+    note: "Một khung lưu niệm dành riêng cho Lan Linh.",
   },
 ];
 
@@ -38,8 +36,8 @@ export const VtuberArt = ({
     requestDialogue({
       speaker: guides.stone,
       lines: [
-        "Trước khi mở cuốn sổ, để tụi tớ dành riêng một khoảng cho art của hai cậu.",
-        "Hai ánh trăng vừa khép lại, giờ đến lượt hai hình bóng được đặt dưới ánh sao.",
+        "Trước khi mở cuốn sổ, tụi tớ muốn dành riêng một khoảng cho hình bóng của hai cậu.",
+        "Không cần nói nhiều đâu. Cứ để khung này sáng lên như một lời chào nhỏ.",
       ],
       mood: "intimate",
     });
@@ -50,26 +48,22 @@ export const VtuberArt = ({
       <section className="artShowcaseIntro">
         <span>VTUBER ART</span>
         <h2>Hai hình bóng dưới cùng một bầu trời</h2>
-        <p>
-          Một phần riêng để lưu art của Linh Lan và Lan Linh trước khi bước vào những trang ký ức.
-        </p>
+        <p>Một khoảng riêng cho Linh Lan và Lan Linh trước khi bước sâu hơn vào những trang ký ức.</p>
       </section>
 
-      <section className="vtuberArtGrid" aria-label="VTuber art gallery">
+      <section className="vtuberArtGrid" aria-label="Khung art VTuber">
         {vtuberArtSlots.map((slot) => (
           <article className="vtuberArtCard" key={slot.name}>
             <div className="vtuberArtFrame">
               {slot.imageSrc ? (
-                <img src={slot.imageSrc} alt={`${slot.name} art`} />
+                <img src={slot.imageSrc} alt={`Art của ${slot.name}`} />
               ) : (
                 <div className="vtuberArtPlaceholder" aria-hidden="true">
-                  <span>{slot.label}</span>
                   <strong>{slot.name}</strong>
                 </div>
               )}
             </div>
             <div className="vtuberArtCaption">
-              <span>{slot.label}</span>
               <h3>{slot.name}</h3>
               <p>{slot.note}</p>
             </div>

@@ -1,4 +1,5 @@
 import type { TarotTopic } from "../data/tarotDeck";
+import { achievements } from "../data/achievements";
 
 export type SectionId =
   | "who"
@@ -29,6 +30,40 @@ export type PartId =
   | "teamGallery"
   | "finale";
 export type JourneyPartStatus = "locked" | "active" | "completed";
+
+const PART_ORDER: PartId[] = [
+  "constellation",
+  "moonphase",
+  "vtuberArt",
+  "scrapbook",
+  "tarot",
+  "gacha",
+  "cipher",
+  "wishes",
+  "letters",
+  "teamGallery",
+  "finale",
+];
+
+const PART_ID_SET = new Set<string>(PART_ORDER);
+const ACHIEVEMENT_ID_SET = new Set(achievements.map((achievement) => achievement.id));
+
+const isPartId = (value: unknown): value is PartId =>
+  typeof value === "string" && PART_ID_SET.has(value);
+
+const normalizeAchievements = (value: unknown): string[] =>
+  Array.isArray(value)
+    ? Array.from(
+        new Set(
+          value.filter(
+            (id): id is string => typeof id === "string" && ACHIEVEMENT_ID_SET.has(id),
+          ),
+        ),
+      )
+    : [];
+
+const getFirstIncompletePartId = (completedParts: PartId[]): PartId =>
+  PART_ORDER.find((partId) => !completedParts.includes(partId)) ?? "finale";
 
 export type ArrivalYear = "2022" | "2023" | "2024" | "2025_2026";
 export type ZodiacElement = "fire" | "earth" | "air" | "water";
@@ -76,15 +111,31 @@ export type AppState = {
   characterAffinity: Record<string, number>;
   gashaponInventory: string[];
   gashaponPulls: number;
-  gashaponPity: number;
   visitCount: number;
   directorCommentary: string[];
+  readWishIds: number[];
+  /**
+   * Wish IDs for which the first-reaction affinity grant has already fired.
+   * Used to make the grant idempotent across reloads and prevent reload farming.
+   */
+  wishAffinityGrantedIds: number[];
   scrapbookUnlocked: boolean;
   usedQuizIds: string[];
   quizFails: number;
-  gachaTickets: number; // Tạm giữ để tương thích, không còn dùng
+  /**
+   * @deprecated Tickets are no longer consumed by the gacha flow.
+   * Kept only so older saved states can still be normalized safely.
+   */
+  gachaTickets: number;
   minigameRecords: Record<string, { plays: number; wins: number }>;
   hasSeenGuidedTour: boolean;
+  // ─── Affinity System ──────────────────────────
+  giftedItems: Record<string, string[]>;     // characterId → gift IDs given
+  pokedCharacters: string[];                  // characterIds poked this visit
+  letterReplies: string[];                    // characterIds with replied letters
+  tarotInterpretedBy: string[];               // characterIds that interpreted tarot (history)
+  memberQuizPassed: string[];                 // characterIds with passed member quiz
+  charmBonusGranted: boolean;                 // whether charm passive was given this visit
 };
 
 export const STORAGE_KEY = "four-years-two-stars:v4";
@@ -105,9 +156,10 @@ export const createInitialState = (): AppState => ({
   characterAffinity: {},
   gashaponInventory: [],
   gashaponPulls: 0,
-  gashaponPity: 0,
   visitCount: 0,
   directorCommentary: [],
+  readWishIds: [],
+  wishAffinityGrantedIds: [],
   scrapbookUnlocked: false,
   usedQuizIds: [],
   quizFails: 0,
@@ -120,6 +172,12 @@ export const createInitialState = (): AppState => ({
     balanceCoop: { plays: 0, wins: 0 },
   },
   hasSeenGuidedTour: false,
+  giftedItems: {},
+  pokedCharacters: [],
+  letterReplies: [],
+  tarotInterpretedBy: [],
+  memberQuizPassed: [],
+  charmBonusGranted: false,
 });
 
 export const normalizeStoredState = (value: Partial<AppState> | null): AppState => {
@@ -129,7 +187,23 @@ export const normalizeStoredState = (value: Partial<AppState> | null): AppState 
     return base;
   }
 
-  const completedParts = Array.isArray(value.completedParts) ? value.completedParts : [];
+  const { streamSafeMode: _streamSafeMode, ...storedValue } = value as Partial<AppState> & {
+    streamSafeMode?: unknown;
+  };
+  let completedParts = Array.isArray(value.completedParts)
+    ? value.completedParts.filter(isPartId)
+    : [];
+  const storedActivePartId = isPartId(value.activePartId) ? value.activePartId : null;
+
+  if (value.hasStarted && storedActivePartId) {
+    const activePartIndex = PART_ORDER.indexOf(storedActivePartId);
+    const inferredCompletedParts = PART_ORDER.slice(0, activePartIndex);
+
+    completedParts = inferredCompletedParts.reduce(
+      (parts, partId) => (parts.includes(partId) ? parts : [...parts, partId]),
+      completedParts,
+    );
+  }
   const shouldInsertMoonPhase =
     value.hasStarted &&
     value.activePartId === "scrapbook" &&
@@ -164,7 +238,7 @@ export const normalizeStoredState = (value: Partial<AppState> | null): AppState 
     !completedParts.includes("teamGallery") &&
     !completedParts.includes("finale");
 
-  let activePartId = value.activePartId ?? "constellation";
+  let activePartId = storedActivePartId ?? "constellation";
   let currentSection = value.currentSection ?? (value.hasStarted ? "constellation" : "vhs");
 
   if (shouldInsertMoonPhase) {
@@ -187,13 +261,23 @@ export const normalizeStoredState = (value: Partial<AppState> | null): AppState 
     currentSection = "teamGallery";
   }
 
+  if (value.hasStarted && completedParts.includes(activePartId)) {
+    activePartId = getFirstIncompletePartId(completedParts);
+    currentSection = activePartId;
+  }
+
+  const wishAffinityGrantedIds = Array.isArray(value.wishAffinityGrantedIds)
+    ? Array.from(new Set(value.wishAffinityGrantedIds.filter((id): id is number => typeof id === "number")))
+    : [];
+  const storedGashaponPulls = value.gashaponPulls as unknown;
+
   return {
     ...base,
-    ...value,
+    ...storedValue,
     currentSection,
     activePartId,
     completedParts,
-    achievements: Array.isArray(value.achievements) ? value.achievements : [],
+    achievements: normalizeAchievements(value.achievements),
     unlockedStars: Array.isArray(value.unlockedStars) ? value.unlockedStars : [],
     constellationSpecialStars: Array.isArray(value.constellationSpecialStars)
       ? value.constellationSpecialStars
@@ -206,9 +290,12 @@ export const normalizeStoredState = (value: Partial<AppState> | null): AppState 
       ? (value.characterAffinity as Record<string, number>) 
       : {},
     gashaponInventory: Array.isArray(value.gashaponInventory) ? value.gashaponInventory : [],
-    gashaponPulls: typeof value.gashaponPulls === "number" ? value.gashaponPulls : 0,
-    gashaponPity: typeof value.gashaponPity === "number" ? value.gashaponPity : 0,
+    gashaponPulls: typeof storedGashaponPulls === "number" && Number.isFinite(storedGashaponPulls) && storedGashaponPulls >= 0
+      ? Math.floor(storedGashaponPulls)
+      : 0,
     directorCommentary: Array.isArray(value.directorCommentary) ? value.directorCommentary : [],
+    readWishIds: Array.isArray(value.readWishIds) ? value.readWishIds : [],
+    wishAffinityGrantedIds,
     scrapbookUnlocked: typeof value.scrapbookUnlocked === "boolean" ? value.scrapbookUnlocked : false,
     usedQuizIds: Array.isArray(value.usedQuizIds) ? value.usedQuizIds : [],
     quizFails: typeof value.quizFails === "number" ? value.quizFails : 0,
@@ -217,5 +304,14 @@ export const normalizeStoredState = (value: Partial<AppState> | null): AppState 
       ? (value.minigameRecords as Record<string, { plays: number; wins: number }>)
       : base.minigameRecords,
     hasSeenGuidedTour: typeof value.hasSeenGuidedTour === "boolean" ? value.hasSeenGuidedTour : false,
+    // ─── Affinity System (migration-safe defaults) ──────────────────────────
+    giftedItems: typeof value.giftedItems === "object" && value.giftedItems !== null
+      ? (value.giftedItems as Record<string, string[]>)
+      : {},
+    pokedCharacters: Array.isArray(value.pokedCharacters) ? value.pokedCharacters : [],
+    letterReplies: Array.isArray(value.letterReplies) ? value.letterReplies : [],
+    tarotInterpretedBy: Array.isArray(value.tarotInterpretedBy) ? value.tarotInterpretedBy : [],
+    memberQuizPassed: Array.isArray(value.memberQuizPassed) ? value.memberQuizPassed : [],
+    charmBonusGranted: typeof value.charmBonusGranted === "boolean" ? value.charmBonusGranted : false,
   };
 };

@@ -51,8 +51,8 @@ export const ambientDialogues: AmbientDialogue[] = [
     ],
   },
   {
-    id: "ambient:mashiro:scrapbook",
-    speaker: guides.kuro,
+    id: "ambient:imed:scrapbook",
+    speaker: guides.imed,
     mood: "intimate",
     preferredParts: ["scrapbook", "letters", "teamGallery"],
     lines: [

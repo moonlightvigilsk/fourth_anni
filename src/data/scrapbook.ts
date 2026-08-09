@@ -71,7 +71,7 @@ export const linhLanChapters: ScrapbookChapter[] = [
     },
     marginNotes: [
       { author: "imed", text: "Tôi viết lại đoạn này 3 lần" },
-      { author: "kuro", text: "Event đó kỳ lắm. Tốt." },
+      { author: "nova", text: "Event đó kỳ lắm. Tốt." },
     ],
   },
   {
@@ -167,7 +167,7 @@ export const lanLinhChapters: ScrapbookChapter[] = [
     },
     marginNotes: [
       { author: "imed", text: "Giai điệu này khó quên" },
-      { author: "kuro", text: "Hơi buồn nhưng đẹp" },
+      { author: "stone", text: "Hơi buồn nhưng đẹp" },
     ],
   },
   {

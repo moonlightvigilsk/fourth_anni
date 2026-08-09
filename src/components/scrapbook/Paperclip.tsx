@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type SyntheticEvent } from "react";
 import { motion, AnimatePresence } from "motion/react";
 
 type PaperclipProps = {
@@ -7,7 +7,7 @@ type PaperclipProps = {
   onOpen: () => void;
 };
 
-export const Paperclip = ({ id, note, onOpen }: PaperclipProps) => {
+export const Paperclip = ({ note, onOpen }: PaperclipProps) => {
   const [isOpen, setIsOpen] = useState(false);
 
   const handleToggle = () => {
@@ -17,20 +17,30 @@ export const Paperclip = ({ id, note, onOpen }: PaperclipProps) => {
     setIsOpen(!isOpen);
   };
 
+  const stopPageFlipGesture = (event: SyntheticEvent) => {
+    event.stopPropagation();
+  };
+
   return (
     <div className="paperclipContainer">
-      <div 
-        className="paperclipIcon" 
+      <button
+        type="button"
+        className="paperclipIcon"
         onClick={handleToggle}
-        role="button"
-        tabIndex={0}
+        onPointerDownCapture={stopPageFlipGesture}
+        onMouseDownCapture={stopPageFlipGesture}
+        onTouchStartCapture={stopPageFlipGesture}
+        onPointerDown={stopPageFlipGesture}
+        onMouseDown={stopPageFlipGesture}
+        onTouchStart={stopPageFlipGesture}
+        aria-label={isOpen ? "Đóng ghi chú kẹp giấy" : "Mở ghi chú kẹp giấy"}
       >
         📎
-      </div>
-      
+      </button>
+
       <AnimatePresence>
-        {isOpen && (
-          <motion.div 
+        {isOpen ? (
+          <motion.div
             className="paperclipNote"
             initial={{ opacity: 0, height: 0, scale: 0.9 }}
             animate={{ opacity: 1, height: "auto", scale: 1 }}
@@ -40,7 +50,7 @@ export const Paperclip = ({ id, note, onOpen }: PaperclipProps) => {
               {note}
             </div>
           </motion.div>
-        )}
+        ) : null}
       </AnimatePresence>
     </div>
   );
