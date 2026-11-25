@@ -14,7 +14,6 @@ Current filenames:
 - `demi.png`
 - `an-chi.png`
 - `lil-wayne.png`
-- `mashiro.png`
 - `ren-pham.png`
 - `akatsuki.png`
 
